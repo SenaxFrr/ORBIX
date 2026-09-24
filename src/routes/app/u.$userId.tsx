@@ -99,34 +99,44 @@ function PublicBody({
 
   return (
     <>
-      <div className="mt-4 flex items-center gap-3">
-        <div className="flex size-14 items-center justify-center rounded-full bg-surface-2 text-sm font-semibold">
-          {user.pseudo.slice(0, 2).toUpperCase()}
-        </div>
-        <div className="min-w-0">
-          <p className="truncate text-sm font-medium">@{user.pseudo}</p>
-          <div className="mt-1 flex flex-wrap items-center gap-2">
-            <RankBadge rank={orbit.rank} division={orbit.division} label={orbit.label} size="lg" />
-            {user.isAdmin ? (
-              <span className="rounded-full bg-accent/15 px-2 py-0.5 text-[11px] text-accent">Admin</span>
-            ) : null}
-          </div>
-        </div>
+      <div className="mt-5">
+        {orbit.classified ? (
+          <>
+            <RankBadge rank={orbit.rank} division={orbit.division} label={orbit.label} size="xl" />
+            <p className="mt-3 font-display text-4xl font-semibold num">{formatFr(orbit.score, 1)}</p>
+            <div className="mt-3 h-2 overflow-hidden rounded-full bg-surface-2">
+              <div className="h-full rounded-full bg-accent" style={{ width: `${progress.pct}%` }} />
+            </div>
+            <p className="mt-2 text-sm text-muted">{progress.label}</p>
+          </>
+        ) : (
+          <p className="font-display text-2xl font-semibold">Non classé</p>
+        )}
+        <p className="mt-3 text-sm text-muted">
+          @{user.pseudo}
+          {user.isAdmin ? <span className="ml-2 text-[11px] uppercase text-accent">admin</span> : null}
+        </p>
       </div>
       {user.bio?.trim() ? (
         <p className="mt-3 whitespace-pre-wrap break-words text-sm">{user.bio.trim()}</p>
       ) : null}
 
-      {orbit.classified ? (
-        <div className="mt-4">
-          <p className="text-sm text-muted">Score {formatFr(orbit.score, 1)}</p>
-          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-2">
-            <div className="h-full rounded-full bg-accent" style={{ width: `${progress.pct}%` }} />
-          </div>
-        </div>
-      ) : (
-        <p className="mt-3 text-sm text-muted">Non classé</p>
-      )}
+      <section className="mt-6">
+        <h2 className="text-sm font-medium">Rangs d’exos</h2>
+        {lifts.length === 0 ? (
+          <p className="mt-2 text-sm text-muted">Pas encore de rangs d’exos types.</p>
+        ) : (
+          <ul className="mt-2 space-y-2">
+            {lifts.map((l) => (
+              <li key={l.exerciseId} className="flex items-center justify-between gap-3 rounded-2xl bg-surface px-3 py-3">
+                <RankBadge rank={l.rank} division={l.division} label={l.label} size="sm" />
+                <p className="min-w-0 flex-1 truncate text-sm font-medium">{l.name}</p>
+                <span className="shrink-0 text-sm num">{formatSet(l.bestWeight, l.bestReps)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <p className="mt-4 text-sm">
         {SEX_LABEL[user.sex]} · {formatAge(user.age)}
@@ -134,7 +144,6 @@ function PublicBody({
       <p className="mt-1 text-sm text-muted">
         {LEVEL_LABEL[user.level ?? "debutant"]} · {GOAL_LABEL[user.goal ?? "force"]}
       </p>
-
       <div className="mt-4 grid grid-cols-2 gap-2">
         <div className="glass rounded-xl px-3 py-3">
           <p className="text-[10px] uppercase text-muted">Séances</p>
@@ -147,28 +156,7 @@ function PublicBody({
           <p className="mt-1 text-sm font-medium">{formatDateFull(user.createdAt)}</p>
         </div>
       </div>
-      {volume > 0 ? (
-        <p className="mt-2 text-sm text-muted">Volume total {formatVolume(volume)}</p>
-      ) : null}
-
-      <section className="mt-6">
-        <h2 className="text-sm font-medium">Rangs d’exos</h2>
-        {lifts.length === 0 ? (
-          <p className="mt-2 text-sm text-muted">Pas encore de rangs d’exos types.</p>
-        ) : (
-          <ul className="mt-2 space-y-2">
-            {lifts.map((l) => (
-              <li key={l.exerciseId} className="glass rounded-2xl px-3 py-3">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="min-w-0 truncate text-sm font-medium">{l.name}</p>
-                  <RankBadge rank={l.rank} division={l.division} label={l.label} size="sm" />
-                </div>
-                <p className="mt-1 text-xs text-muted">{formatSet(l.bestWeight, l.bestReps)}</p>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      {volume > 0 ? <p className="mt-2 text-sm text-muted">Volume total {formatVolume(volume)}</p> : null}
 
       <div className="mt-6 grid gap-2">
         {!mine ? (

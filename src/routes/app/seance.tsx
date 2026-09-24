@@ -52,6 +52,7 @@ function Logger({ workoutId, name }: { workoutId: string; name: string }) {
   const [reps, setReps] = useState(8);
   const [leave, setLeave] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [notes, setNotes] = useState<Record<string, string>>({});
 
   const rest = store.restByUser[user.id];
   const ex = findExercise(currentId, pool);
@@ -89,7 +90,8 @@ function Logger({ workoutId, name }: { workoutId: string; name: string }) {
   function validate() {
     if (busy || !currentId || reps <= 0) return;
     setBusy(true);
-    store.addSet({ workoutId, exerciseId: currentId, weight, reps });
+    const logged = store.addSet({ workoutId, exerciseId: currentId, weight, reps });
+    if (logged?.note) setNotes((n) => ({ ...n, [logged.id]: logged.note! }));
     window.setTimeout(() => setBusy(false), 280);
   }
 
@@ -147,9 +149,12 @@ function Logger({ workoutId, name }: { workoutId: string; name: string }) {
 
       <ul className="mt-3 space-y-1">
         {sets.map((s) => (
-          <li key={s.id} className="flex h-10 items-center justify-between rounded-lg bg-surface-2 px-3 text-sm">
-            <span className="text-muted num">S{s.setNumber}</span>
-            <span className="font-medium num">{formatSet(s.weight, s.reps)}</span>
+          <li key={s.id} className="rounded-lg bg-surface-2 px-3 py-2 text-sm">
+            <div className="flex h-6 items-center justify-between">
+              <span className="text-muted num">S{s.setNumber}</span>
+              <span className="font-medium num">{formatSet(s.weight, s.reps)}</span>
+            </div>
+            {notes[s.id] ? <p className="mt-1 text-xs text-muted">{notes[s.id]}</p> : null}
           </li>
         ))}
       </ul>

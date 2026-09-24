@@ -117,16 +117,35 @@ export function rose(
 
 export function nextRankInfo(score: number, classified: boolean): { pct: number; label: string; nextName: string | null } {
   if (!classified || score <= 0) {
-    return { pct: 0, label: "3 exos classés pour un rang", nextName: null };
+    return { pct: 0, label: "3 exos types pour débloquer ton rang", nextName: null };
   }
-  const { def } = rankFromScore(score, true);
-  const idx = RANKS.findIndex((r) => r.id === def.id);
-  const next = RANKS[idx + 1];
-  if (!next) return { pct: 100, label: "Palier max", nextName: null };
-  const span = Math.max(0.1, next.min - def.min);
-  const pct = Math.max(0, Math.min(100, ((score - def.min) / span) * 100));
-  const pts = Math.max(0, round1(next.min - score));
-  return { pct, label: `${formatFr(pts, 1)} pts vers ${next.name}`, nextName: next.name };
+  const { def, division } = rankFromScore(score, true);
+  const span = Math.max(1, def.max - def.min + 1);
+  const slice = span / 3;
+  let nextScore = def.max + 1;
+  let nextLabel = "";
+  let floor = def.min;
+  if (division === "III") {
+    nextScore = def.min + slice;
+    nextLabel = `${def.name} II`;
+    floor = def.min;
+  } else if (division === "II") {
+    nextScore = def.min + slice * 2;
+    nextLabel = `${def.name} I`;
+    floor = def.min + slice;
+  } else {
+    const idx = RANKS.findIndex((r) => r.id === def.id);
+    const next = RANKS[idx + 1];
+    if (!next) return { pct: 100, label: "Palier max", nextName: null };
+    nextScore = next.min;
+    nextLabel = `${next.name} III`;
+    floor = def.min + slice * 2;
+  }
+  const width = Math.max(0.1, nextScore - floor);
+  const pct = Math.max(0, Math.min(100, ((score - floor) / width) * 100));
+  const pts = Math.max(0, round1(nextScore - score));
+  const digits = Number.isInteger(pts) ? 0 : 1;
+  return { pct, label: `encore ${formatFr(pts, digits)} pts pour ${nextLabel}`, nextName: nextLabel };
 }
 
 type RawBest = { weight: number; reps: number; epley: number; at: string };
@@ -139,7 +158,7 @@ export function bestSetForExercise(
   declared: DeclaredPerf[] = [],
 ): RawBest | null {
   const wIds = new Set(
-    workouts.filter((w) => w.userId === userId && w.status === "completed").map((w) => w.id),
+    workouts.filter((w) => w.userId === userId && (w.status === "completed" || w.status === "in_progress")).map((w) => w.id),
   );
   let best: RawBest | null = null;
   for (const s of sets) {

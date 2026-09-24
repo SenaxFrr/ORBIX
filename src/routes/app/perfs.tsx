@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CATALOG_GROUPS, classifiedIds, findExercise } from "@/lib/orbit/exercises";
-import { formatFr, formatRm, formatSet, todayKey } from "@/lib/orbit/format";
+import { formatFr, formatSet, todayKey } from "@/lib/orbit/format";
 import { computeGlobalOrbit, lastSetForExercise, liftRankFor } from "@/lib/orbit/ranks";
 import { useOrbitStore, usePool, useSessionUser } from "@/lib/orbit/store";
 import type { MuscleGroup } from "@/lib/orbit/types";
@@ -18,13 +18,37 @@ export const Route = createFileRoute("/app/perfs")({ component: PerfsPage });
 
 function PerfsPage() {
   const pathname = useLocation({ select: (l) => l.pathname });
+  const store = useOrbitStore();
+  const pool = usePool();
+  const me = useSessionUser();
   const [tab, setTab] = useState<"classements" | "exos" | "definir">("classements");
   if (pathname !== "/app/perfs") return <Outlet />;
+  const orbit = me ? computeGlobalOrbit(me, store.sets, store.workouts, store.declaredPerfs, pool) : null;
+  const place = (() => {
+    if (!me || !orbit?.classified) return null;
+    const rows = store.users
+      .filter((u) => !u.isAdmin)
+      .map((u) => ({ id: u.id, o: computeGlobalOrbit(u, store.sets, store.workouts, store.declaredPerfs, pool) }))
+      .filter((r) => r.o.classified)
+      .sort((a, b) => b.o.score - a.o.score);
+    const i = rows.findIndex((r) => r.id === me.id);
+    if (i < 0) return null;
+    const n = i + 1;
+    return `${n === 1 ? "1er" : `${n}e`} / ${rows.length}`;
+  })();
   return (
     <main className="px-4 pb-36">
       <h1 className="font-display text-2xl font-semibold">Perfs</h1>
+      {me && orbit?.classified ? (
+        <div className="mt-3">
+          <RankBadge rank={orbit.rank} division={orbit.division} label={orbit.label} size="xl" />
+          <p className="mt-2 font-display text-3xl font-semibold num">{formatFr(orbit.score, 1)}</p>
+          {place ? <p className="text-sm text-muted">{place}</p> : null}
+        </div>
+      ) : (
+        <RankGateBanner />
+      )}
       <ResumeBanner />
-      <RankGateBanner />
       <div className="mb-4 mt-3 grid grid-cols-3 gap-1 rounded-xl bg-surface-2 p-1">
         <TabBtn active={tab === "classements"} onClick={() => setTab("classements")}>
           Classements
@@ -239,15 +263,16 @@ function MyExos() {
                   void navigate({ to: "/app/perfs/$exerciseId", params: { exerciseId: l.exerciseId } })
                 }
               >
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">{l.name}</p>
-                  <p className="text-xs text-muted">
-                    {l.bestWeight > 0 ? formatSet(l.bestWeight, l.bestReps) : "—"}
-                    {l.epley > 0 ? ` · 1RM ${formatRm(l.epley)}` : ""}
-                  </p>
+                <div className="flex min-w-0 flex-1 items-center gap-3">
+                  {l.classifiedLift && l.bestWeight > 0 ? (
+                    <RankBadge rank={l.rank} division={l.division} label={l.label} size="sm" />
+                  ) : null}
+                  <p className="min-w-0 truncate font-medium">{l.name}</p>
                 </div>
-                <RankBadge rank={l.rank} division={l.division} size="sm" />
-                <ChevronRight className="size-4 text-subtle" />
+                <span className="shrink-0 text-sm num">
+                  {l.bestWeight > 0 ? formatSet(l.bestWeight, l.bestReps) : "—"}
+                </span>
+                <ChevronRight className="size-4 shrink-0 text-subtle" />
               </button>
             </li>
           ))}

@@ -11,7 +11,7 @@ export function RankBadge({
   rank: RankId;
   division?: Division | null;
   label?: string;
-  size?: "sm" | "md" | "lg";
+  size?: "sm" | "md" | "lg" | "xl";
 }) {
   const def = rankById(rank);
   const text = label ?? rankLabel(rank, division ?? null);
@@ -22,6 +22,7 @@ export function RankBadge({
         size === "sm" && "px-2 py-0.5 text-xs",
         size === "md" && "px-2.5 py-1 text-xs",
         size === "lg" && "px-3 py-1.5 text-sm",
+        size === "xl" && "px-4 py-2 font-display text-2xl font-semibold tracking-wide",
       )}
       style={{
         background: `color-mix(in oklab, ${def.color} 18%, transparent)`,

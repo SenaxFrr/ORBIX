@@ -111,7 +111,7 @@ interface OrbitState extends OrbitData {
   ) => { ok: true } | { ok: false; error: string };
   deleteOfficialExercise: (id: string) => { ok: true } | { ok: false; error: string };
   startWorkout: (programId: string) => string;
-  addSet: (opts: { workoutId: string; exerciseId: string; weight: number; reps: number }) => void;
+  addSet: (opts: { workoutId: string; exerciseId: string; weight: number; reps: number }) => { id: string; note: string | null } | null;
   finishWorkout: (workoutId: string) => void;
   abandonWorkout: (id: string) => void;
   skipRest: () => void;
@@ -952,7 +952,7 @@ export const useOrbitStore = create<OrbitState>()(
       addSet: ({ workoutId, exerciseId, weight, reps }) => {
         const s = get();
         const userId = s.sessionUserId;
-        if (!userId) return;
+        if (!userId) return null;
         const planned = s.workoutExercises.find((w) => w.workoutId === workoutId && w.exerciseId === exerciseId);
         const existing = s.sets.filter((x) => x.workoutId === workoutId && x.exerciseId === exerciseId);
         const rest = planned?.restSeconds ?? findExercise(exerciseId, poolFrom(s))?.defaultRest ?? 90;
@@ -966,13 +966,28 @@ export const useOrbitStore = create<OrbitState>()(
           restSeconds: rest,
           completedAt: new Date().toISOString(),
         };
+        const user = sessionUser(s);
+        const pool = poolFrom(s);
+        const sets = [...s.sets, log];
+        let events: RankEvent[] = [];
+        let note: string | null = null;
+        if (user && isClassifiedLift(exerciseId, pool)) {
+          const after = { ...s, sets };
+          events = diffRankEvents(snap(s, user), snap(after, user), exerciseId);
+          const exo = events.find((e) => e.kind === "exo");
+          const glob = events.find((e) => e.kind === "global");
+          if (exo && exo.kind === "exo") note = `Rang ${exo.name} · ${exo.from} → ${exo.to}`;
+          else if (glob && glob.kind === "global") note = `Rang global · ${glob.from} → ${glob.to}`;
+        }
         set({
-          sets: [...s.sets, log],
+          sets,
           restByUser: {
             ...s.restByUser,
             [userId]: rest > 0 ? { endsAt: Date.now() + rest * 1000, duration: rest, exerciseId } : null,
           },
+          rankQueue: events.length ? [...s.rankQueue, ...events] : s.rankQueue,
         });
+        return { id: log.id, note };
       },
       finishWorkout: (workoutId) => {
         const s = get();

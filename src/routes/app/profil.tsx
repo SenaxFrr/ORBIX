@@ -80,32 +80,24 @@ function Apercu() {
   const orbit = computeGlobalOrbit(user, store.sets, store.workouts, store.declaredPerfs, pool);
   const progress = nextRankInfo(orbit.score, orbit.classified);
   const [bio, setBio] = useState(user.bio ?? "");
-  const initials = (user.firstName || user.pseudo).slice(0, 2).toUpperCase();
 
   return (
     <div>
-      <div className="flex items-center gap-3">
-        <div className="flex size-14 items-center justify-center rounded-full bg-surface-2 text-sm font-semibold">
-          {initials}
-        </div>
-        <div className="min-w-0">
-          <p className="text-xs uppercase tracking-[0.16em] text-muted">@{user.pseudo}</p>
-          <div className="mt-1">
-            <RankBadge rank={orbit.rank} division={orbit.division} label={orbit.label} size="lg" />
+      <div>
+        <p className="text-xs text-muted">@{user.pseudo}</p>
+        {orbit.classified ? (
+          <div className="mt-3">
+            <RankBadge rank={orbit.rank} division={orbit.division} label={orbit.label} size="xl" />
+            <p className="mt-3 font-display text-4xl font-semibold num">{formatFr(orbit.score, 1)}</p>
+            <div className="mt-3 h-2 overflow-hidden rounded-full bg-surface-2">
+              <div className="h-full rounded-full bg-accent" style={{ width: `${progress.pct}%` }} />
+            </div>
+            <p className="mt-2 text-sm text-muted">{progress.label}</p>
           </div>
-        </div>
+        ) : (
+          <RankGateBanner />
+        )}
       </div>
-      {orbit.classified ? (
-        <div className="mt-4">
-          <p className="text-sm text-muted">Score {formatFr(orbit.score, 1)}</p>
-          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-2">
-            <div className="h-full rounded-full bg-accent" style={{ width: `${progress.pct}%` }} />
-          </div>
-          <p className="mt-1 text-xs text-subtle">{progress.label}</p>
-        </div>
-      ) : (
-        <RankGateBanner />
-      )}
       <Button
         variant="secondary"
         className="mt-4 w-full"

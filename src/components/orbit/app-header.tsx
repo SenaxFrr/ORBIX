@@ -71,24 +71,28 @@ export function RankStrip() {
   const initials = (user.firstName || user.pseudo).slice(0, 2).toUpperCase();
   return (
     <div
-      className="sticky top-0 z-20 shrink-0 overflow-hidden border-b border-border bg-bg/90 backdrop-blur-md"
+      className="sticky top-0 z-20 shrink-0 border-b border-border bg-bg/95 backdrop-blur-md"
       style={{ paddingTop: "env(safe-area-inset-top)" }}
     >
-      <div className="flex h-14 items-center gap-3 px-4">
+      <div className="flex items-start gap-2 px-4 py-2">
         <button
-          className="flex min-w-0 flex-1 items-center gap-3 text-left"
+          className="min-w-0 flex-1 text-left"
           onClick={() => void navigate({ to: "/app/perfs" })}
-          aria-label="Classements"
+          aria-label={orbit.classified ? "Voir le classement" : "Débloquer mon rang"}
         >
-          <RankBadge rank={orbit.rank} division={orbit.division} label={orbit.label} size="sm" />
-          <div className="min-w-0 flex-1">
-            <div className="h-1.5 overflow-hidden rounded-full bg-surface-2">
-              <div className="h-full rounded-full bg-accent" style={{ width: `${progress.pct}%` }} />
-            </div>
-          </div>
-          <span className="shrink-0 text-sm text-muted num">
-            {orbit.classified ? formatFr(orbit.score, 1) : "—"}
-          </span>
+          {orbit.classified ? (
+            <>
+              <div className="flex items-center gap-3">
+                <RankBadge rank={orbit.rank} division={orbit.division} label={orbit.label} size="xl" />
+                <span className="font-display text-3xl font-semibold num">{formatFr(orbit.score, 1)}</span>
+              </div>
+              <p className="mt-1 text-xs text-muted">{progress.label}</p>
+            </>
+          ) : (
+            <p className="font-display text-lg font-semibold leading-tight">
+              3 exos types pour débloquer ton rang
+            </p>
+          )}
         </button>
         <DmButton />
         <button
