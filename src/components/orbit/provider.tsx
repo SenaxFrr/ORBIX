@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Toaster, toast } from "sonner";
 import { OrbitGlyph } from "./glyph";
 import { RankStage } from "./rank-stage";
+import { startOrbitFirebaseSync } from "@/lib/orbit/firebase-sync";
 import { useOrbitStore } from "@/lib/orbit/store";
 
 export function OrbitProvider({ children }: { children: React.ReactNode }) {
@@ -18,6 +19,11 @@ export function OrbitProvider({ children }: { children: React.ReactNode }) {
     if (persist.hasHydrated()) finish();
     return unsub;
   }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    return startOrbitFirebaseSync();
+  }, [hydrated]);
 
   const notice = useOrbitStore((s) => s.notice);
   useEffect(() => {
