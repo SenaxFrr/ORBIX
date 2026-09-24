@@ -13,3 +13,5 @@ const firebaseConfig = {
 
 export const firebaseApp = initializeApp(firebaseConfig);
 export const rtdb = getDatabase(firebaseApp);
+
+export const FIREBASE_SYNC_REV = 2;
