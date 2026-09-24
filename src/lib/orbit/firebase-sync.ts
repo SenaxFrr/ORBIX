@@ -1,4 +1,5 @@
 import { onValue, ref, set } from "firebase/database";
+import { toast } from "sonner";
 import { rtdb } from "@/lib/firebase";
 import { useOrbitStore } from "./store";
 
@@ -22,8 +23,6 @@ const SHARED = [
   "chatClosedUntil",
 ] as const;
 
-type SharedKey = (typeof SHARED)[number];
-
 function pickShared(s: Record<string, unknown>) {
   const out: Record<string, unknown> = {};
   for (const k of SHARED) out[k] = s[k] ?? null;
@@ -34,11 +33,23 @@ function stripUndefined<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
+function writeWorld() {
+  const world = pickShared(useOrbitStore.getState() as unknown as Record<string, unknown>);
+  return set(ref(rtdb, WORLD_PATH), stripUndefined(world));
+}
+
 export function startOrbitFirebaseSync() {
   const worldRef = ref(rtdb, WORLD_PATH);
   let applyingRemote = false;
   let ready = false;
   let timer: ReturnType<typeof setTimeout> | null = null;
+
+  void writeWorld()
+    .then(() => toast.success("Données envoyées au cloud"))
+    .catch((err: { code?: string; message?: string }) => {
+      console.error("[orbit] firebase first write", err);
+      toast.error(err?.code || err?.message || "Écriture Firebase refusée");
+    });
 
   const unsubRemote = onValue(
     worldRef,
@@ -52,25 +63,22 @@ export function startOrbitFirebaseSync() {
         }
         useOrbitStore.setState(patch as never);
         useOrbitStore.getState().ensureSeed();
-      } else {
-        const world = pickShared(useOrbitStore.getState() as unknown as Record<string, unknown>);
-        void set(worldRef, stripUndefined(world));
       }
       ready = true;
       applyingRemote = false;
     },
     (err) => {
-      console.error("[orbit] firebase sync", err);
+      console.error("[orbit] firebase listen", err);
+      toast.error("Lecture Firebase refusée — publie les règles");
       ready = true;
     },
   );
 
-  const unsubStore = useOrbitStore.subscribe((state) => {
+  const unsubStore = useOrbitStore.subscribe(() => {
     if (!ready || applyingRemote) return;
     if (timer) clearTimeout(timer);
     timer = setTimeout(() => {
-      const world = pickShared(state as unknown as Record<string, unknown>);
-      void set(worldRef, stripUndefined(world)).catch((err) => {
+      void writeWorld().catch((err) => {
         console.error("[orbit] firebase write", err);
       });
     }, 350);
