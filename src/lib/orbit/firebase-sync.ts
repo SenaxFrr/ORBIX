@@ -25,7 +25,10 @@ const SHARED = [
 
 function pickShared(s: Record<string, unknown>) {
   const out: Record<string, unknown> = {};
-  for (const k of SHARED) out[k] = s[k] ?? null;
+  for (const k of SHARED) {
+    if (k === "chatClosedUntil") out[k] = s[k] ?? 0;
+    else out[k] = s[k] ?? null;
+  }
   return out;
 }
 
@@ -45,11 +48,7 @@ export function startOrbitFirebaseSync() {
   let timer: ReturnType<typeof setTimeout> | null = null;
 
   void set(ref(rtdb, "orbit/ping"), { ok: true, at: Date.now() })
-    .then(() => {
-      toast.success("Cloud connecté");
-      return writeWorld();
-    })
-    .then(() => toast.success("Données envoyées au cloud"))
+    .then(() => writeWorld())
     .catch((err: { code?: string; message?: string }) => {
       console.error("[orbit] firebase write", err);
       toast.error(err?.code || err?.message || "Écriture Firebase refusée");
@@ -63,7 +62,8 @@ export function startOrbitFirebaseSync() {
       if (remote && typeof remote === "object") {
         const patch: Record<string, unknown> = {};
         for (const k of SHARED) {
-          if (remote[k] != null) patch[k] = remote[k];
+          if (k === "chatClosedUntil") patch[k] = remote[k] ?? 0;
+          else if (remote[k] != null) patch[k] = remote[k];
         }
         useOrbitStore.setState(patch as never);
         useOrbitStore.getState().ensureSeed();
