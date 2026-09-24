@@ -1,0 +1,1 @@
+var e={homme:`Homme`,femme:`Femme`,autre:`Autre`},t={debutant:`Débutant`,intermediaire:`Intermédiaire`,avance:`Avancé`},n={force:`Force`,hypertrophie:`Hypertrophie`,perte:`Perte de gras`,athletique:`Athlétique`},r={Annonce:`Annonce`,Programme:`Programme`,Conseils:`Conseils`,Event:`Event`};export{r as i,t as n,e as r,n as t};

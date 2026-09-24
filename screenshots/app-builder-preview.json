@@ -1,0 +1,36 @@
+{
+  "url": "http://127.0.0.1:8080/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "ORBIT",
+      "hasCanvas": false,
+      "bodyTextLen": 89,
+      "bodyTextHash": "6316c67e282cd05699ba7763c32f61948f0e657ade811b80b02e259f1d81d39d",
+      "bodyTextPrefix": "ORBIT Force, rangs, séances. Simple. Connexion Créer un compte P",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "ORBIT",
+      "hasCanvas": false,
+      "bodyTextLen": 89,
+      "bodyTextHash": "6316c67e282cd05699ba7763c32f61948f0e657ade811b80b02e259f1d81d39d",
+      "bodyTextPrefix": "ORBIT Force, rangs, séances. Simple. Connexion Créer un compte P",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-preview.json"
+}
