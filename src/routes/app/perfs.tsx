@@ -3,6 +3,7 @@ import { ChevronRight, Plus, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { ResumeBanner } from "@/components/orbit/app-header";
 import { RankBadge } from "@/components/orbit/rank-badge";
+import { RankGateBanner } from "@/components/orbit/starter-lifts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,6 +24,7 @@ function PerfsPage() {
     <main className="px-4 pb-36">
       <h1 className="font-display text-2xl font-semibold">Perfs</h1>
       <ResumeBanner />
+      <RankGateBanner />
       <div className="mb-4 mt-3 grid grid-cols-3 gap-1 rounded-xl bg-surface-2 p-1">
         <TabBtn active={tab === "classements"} onClick={() => setTab("classements")}>
           Classements
@@ -62,9 +64,9 @@ function Board() {
   const store = useOrbitStore();
   const pool = usePool();
   const me = useSessionUser()!;
+  const navigate = useNavigate();
   const [scope, setScope] = useState<"global" | "amis">("global");
   const [metric, setMetric] = useState<"global" | string>("global");
-  const [friendErr, setFriendErr] = useState("");
   const friends = store.friendsByUser[me.id] ?? [];
   const classified = classifiedIds(pool);
   const picker = ["global", ...classified];
@@ -123,27 +125,7 @@ function Board() {
       </div>
 
       {scope === "amis" && friends.length === 0 ? (
-        <>
-          <p className="mt-6 text-center text-sm text-muted">Aucun ami pour l’instant.</p>
-          <form
-            className="mt-4 flex gap-2"
-            onSubmit={(e) => {
-              e.preventDefault();
-              const fd = new FormData(e.currentTarget);
-              const p = String(fd.get("pseudo") ?? "");
-              const r = store.addFriend(p);
-              if (!r.ok) setFriendErr(r.error);
-              else {
-                setFriendErr("");
-                e.currentTarget.reset();
-              }
-            }}
-          >
-            <Input name="pseudo" placeholder="Pseudo exact" />
-            <Button type="submit">Ajouter</Button>
-          </form>
-          {friendErr ? <p className="mt-1 text-xs text-danger">{friendErr}</p> : null}
-        </>
+        <p className="mt-6 text-center text-sm text-muted">Aucun ami pour l’instant.</p>
       ) : rows.length === 0 ? (
         <p className="mt-8 text-center text-sm text-muted">
           Personne n’est classé pour l’instant. Définis 3 exos classés pour apparaître.
@@ -151,22 +133,24 @@ function Board() {
       ) : (
         <ul className="mt-3 space-y-1.5">
           {rows.map((r, i) => (
-            <li
-              key={r.id}
-              className={cn(
-                "flex items-center gap-3 rounded-xl px-3 py-2.5",
-                r.id === me.id ? "bg-accent/10 shadow-[var(--shadow-border)]" : "bg-surface",
-              )}
-            >
-              <span className="w-6 text-right text-xs text-muted num">{i + 1}</span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">
-                  {r.pseudo}
-                  {r.id === me.id ? " · toi" : ""}
-                </p>
-              </div>
-              <span className="text-xs text-muted num">{formatFr(r.score, 1)}</span>
-              <RankBadge rank={r.rank} division={r.division} label={r.label} size="sm" />
+            <li key={r.id}>
+              <button
+                className={cn(
+                  "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left",
+                  r.id === me.id ? "bg-accent/10 shadow-[var(--shadow-border)]" : "bg-surface",
+                )}
+                onClick={() => void navigate({ to: "/app/u/$userId", params: { userId: r.id } })}
+              >
+                <span className="w-6 text-right text-xs text-muted num">{i + 1}</span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">
+                    {r.pseudo}
+                    {r.id === me.id ? " · toi" : ""}
+                  </p>
+                </div>
+                <span className="text-xs text-muted num">{formatFr(r.score, 1)}</span>
+                <RankBadge rank={r.rank} division={r.division} label={r.label} size="sm" />
+              </button>
             </li>
           ))}
         </ul>

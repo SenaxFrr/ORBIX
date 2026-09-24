@@ -21,6 +21,7 @@ import { Route as AppProfilRouteImport } from './routes/app/profil'
 import { Route as AppProgrammeRouteImport } from './routes/app/programme'
 import { Route as AppSeanceRouteImport } from './routes/app/seance'
 import { Route as AppSuiviRouteImport } from './routes/app/suivi'
+import { Route as AppUUserIdRouteImport } from './routes/app/u.$userId'
 import { Route as AppPerfsExerciseIdRouteImport } from './routes/app/perfs.$exerciseId'
 import { Route as AppProgrammeProgramIdRouteImport } from './routes/app/programme.$programId'
 import { Route as AppSuiviWorkoutIdRouteImport } from './routes/app/suivi.$workoutId'
@@ -85,6 +86,11 @@ const AppSuiviRoute = AppSuiviRouteImport.update({
   path: '/suivi',
   getParentRoute: () => AppRoute,
 } as any)
+const AppUUserIdRoute = AppUUserIdRouteImport.update({
+  id: '/u/$userId',
+  path: '/u/$userId',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppPerfsExerciseIdRoute = AppPerfsExerciseIdRouteImport.update({
   id: '/$exerciseId',
   path: '/$exerciseId',
@@ -113,6 +119,7 @@ export interface FileRoutesByFullPath {
   '/app/programme': typeof AppProgrammeRouteWithChildren
   '/app/seance': typeof AppSeanceRoute
   '/app/suivi': typeof AppSuiviRouteWithChildren
+  '/app/u/$userId': typeof AppUUserIdRoute
   '/app/': typeof AppIndexRoute
   '/app/perfs/$exerciseId': typeof AppPerfsExerciseIdRoute
   '/app/programme/$programId': typeof AppProgrammeProgramIdRoute
@@ -129,6 +136,7 @@ export interface FileRoutesByTo {
   '/app/programme': typeof AppProgrammeRouteWithChildren
   '/app/seance': typeof AppSeanceRoute
   '/app/suivi': typeof AppSuiviRouteWithChildren
+  '/app/u/$userId': typeof AppUUserIdRoute
   '/app': typeof AppIndexRoute
   '/app/perfs/$exerciseId': typeof AppPerfsExerciseIdRoute
   '/app/programme/$programId': typeof AppProgrammeProgramIdRoute
@@ -147,6 +155,7 @@ export interface FileRoutesById {
   '/app/programme': typeof AppProgrammeRouteWithChildren
   '/app/seance': typeof AppSeanceRoute
   '/app/suivi': typeof AppSuiviRouteWithChildren
+  '/app/u/$userId': typeof AppUUserIdRoute
   '/app/': typeof AppIndexRoute
   '/app/perfs/$exerciseId': typeof AppPerfsExerciseIdRoute
   '/app/programme/$programId': typeof AppProgrammeProgramIdRoute
@@ -166,6 +175,7 @@ export interface FileRouteTypes {
     | '/app/programme'
     | '/app/seance'
     | '/app/suivi'
+    | '/app/u/$userId'
     | '/app/'
     | '/app/perfs/$exerciseId'
     | '/app/programme/$programId'
@@ -182,6 +192,7 @@ export interface FileRouteTypes {
     | '/app/programme'
     | '/app/seance'
     | '/app/suivi'
+    | '/app/u/$userId'
     | '/app'
     | '/app/perfs/$exerciseId'
     | '/app/programme/$programId'
@@ -199,6 +210,7 @@ export interface FileRouteTypes {
     | '/app/programme'
     | '/app/seance'
     | '/app/suivi'
+    | '/app/u/$userId'
     | '/app/'
     | '/app/perfs/$exerciseId'
     | '/app/programme/$programId'
@@ -297,6 +309,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSuiviRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/u/$userId': {
+      id: '/app/u/$userId'
+      path: '/u/$userId'
+      fullPath: '/app/u/$userId'
+      preLoaderRoute: typeof AppUUserIdRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/perfs/$exerciseId': {
       id: '/app/perfs/$exerciseId'
       path: '/$exerciseId'
@@ -366,6 +385,7 @@ interface AppRouteChildren {
   AppProgrammeRoute: typeof AppProgrammeRouteWithChildren
   AppSeanceRoute: typeof AppSeanceRoute
   AppSuiviRoute: typeof AppSuiviRouteWithChildren
+  AppUUserIdRoute: typeof AppUUserIdRoute
   AppIndexRoute: typeof AppIndexRoute
 }
 
@@ -378,6 +398,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppProgrammeRoute: AppProgrammeRouteWithChildren,
   AppSeanceRoute: AppSeanceRoute,
   AppSuiviRoute: AppSuiviRouteWithChildren,
+  AppUUserIdRoute: AppUUserIdRoute,
   AppIndexRoute: AppIndexRoute,
 }
 

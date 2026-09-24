@@ -6,13 +6,13 @@ import { todayKey } from "./format";
 import { BUILTIN_PROGRAMS } from "./programs";
 import { computeGlobalOrbit, diffRankEvents, lastSetForExercise, liftRankFor } from "./ranks";
 import { ADMIN_ID, buildBaseWorld, makeAdmin } from "./seed";
+import { isGlow, isThemeId } from "./theme";
 import type {
   ChatMessage,
   DeclaredPerf,
   Exercise,
-  Goal,
+  FriendRequest,
   HoldUntil,
-  Level,
   MuscleGroup,
   Post,
   PostTag,
@@ -22,6 +22,7 @@ import type {
   RestState,
   SetLog,
   Sex,
+  StarterPerf,
   User,
   WeightLog,
   Workout,
@@ -39,20 +40,21 @@ interface OrbitData {
   posts: Post[];
   likes: Record<string, string[]>;
   friendsByUser: Record<string, string[]>;
+  friendRequests: FriendRequest[];
   restByUser: Record<string, RestState | null>;
   declaredPerfs: DeclaredPerf[];
   weightLogs: WeightLog[];
   catalog: Exercise[];
   messages: ChatMessage[];
   mutedUntil: Record<string, HoldUntil>;
-  chatClosedUntil: HoldUntil | null;
+  chatClosedUntil: HoldUntil;
   lastSentAt: Record<string, number>;
   lastText: Record<string, string>;
   floodUntil: Record<string, number>;
 }
 
 type ProfilePatch = Partial<
-  Pick<User, "bodyweight" | "height" | "sex" | "age" | "firstName" | "level" | "goal">
+  Pick<User, "bodyweight" | "height" | "sex" | "age" | "firstName" | "level" | "goal" | "theme" | "glow">
 >;
 
 interface OrbitState extends OrbitData {
@@ -68,13 +70,18 @@ interface OrbitState extends OrbitData {
     age: number;
     bodyweight: number;
     height: number;
-  }) => { ok: true; user: User } | { ok: false; error: string };
+    perfs: StarterPerf[];
+  }) => { ok: true; user: User; label: string } | { ok: false; error: string };
   login: (pseudo: string, password: string) => { ok: true; user: User } | { ok: false; error: string };
   logout: () => void;
   updateProfile: (patch: ProfilePatch) => void;
   changePassword: (current: string, next: string) => { ok: true } | { ok: false; error: string };
-  addFriend: (pseudo: string) => { ok: true } | { ok: false; error: string };
+  requestFriend: (userId: string) => { ok: true } | { ok: false; error: string };
+  acceptFriendRequest: (id: string) => { ok: true } | { ok: false; error: string };
+  declineFriendRequest: (id: string) => { ok: true } | { ok: false; error: string };
+  cancelFriendRequest: (id: string) => void;
   removeFriend: (id: string) => void;
+  declareStarter: (perfs: StarterPerf[]) => { ok: true; label: string } | { ok: false; error: string };
   createProgram: (name: string, from?: Program) => string;
   createOfficialProgram: (name: string, description?: string) => string;
   updateProgram: (id: string, patch: Partial<Pick<Program, "name" | "description" | "exercises">>) => void;
@@ -120,6 +127,7 @@ interface OrbitState extends OrbitData {
   closeChat: (minutes: 15 | 60 | "manual") => void;
   openChat: () => void;
   deleteAccount: (userId: string) => { ok: true } | { ok: false; error: string };
+  deleteOwnAccount: (pseudo: string, password: string) => { ok: true } | { ok: false; error: string };
   dismissNotice: () => void;
   shiftRankEvent: () => void;
 }
@@ -135,22 +143,55 @@ const empty: OrbitData = {
   posts: [],
   likes: {},
   friendsByUser: {},
+  friendRequests: [],
   restByUser: {},
   declaredPerfs: [],
   weightLogs: [],
   catalog: [],
   messages: [],
   mutedUntil: {},
-  chatClosedUntil: null,
+  chatClosedUntil: 0,
   lastSentAt: {},
   lastText: {},
   floodUntil: {},
 };
 
 export function isHeld(until: HoldUntil | null | undefined, now = Date.now()): boolean {
-  if (until == null) return false;
+  if (until == null || until === 0) return false;
   if (until === "manual") return true;
   return until > now;
+}
+
+export function normalizeClosed(v: unknown): HoldUntil {
+  if (v === "manual") return "manual";
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  return 0;
+}
+
+export function normalizeMuted(v: unknown): Record<string, HoldUntil> {
+  const out: Record<string, HoldUntil> = {};
+  if (!v || typeof v !== "object" || Array.isArray(v)) return out;
+  for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
+    if (val === "manual") out[k] = "manual";
+    else if (typeof val === "number" && Number.isFinite(val)) out[k] = val;
+    else out[k] = 0;
+  }
+  return out;
+}
+
+export function normalizeRequests(v: unknown): FriendRequest[] {
+  if (!Array.isArray(v)) return [];
+  return v.filter(
+    (r): r is FriendRequest =>
+      !!r &&
+      typeof r === "object" &&
+      typeof (r as FriendRequest).id === "string" &&
+      typeof (r as FriendRequest).fromId === "string" &&
+      typeof (r as FriendRequest).toId === "string" &&
+      ((r as FriendRequest).status === "pending" ||
+        (r as FriendRequest).status === "accepted" ||
+        (r as FriendRequest).status === "declined"),
+  );
 }
 
 function toHold(minutes: 15 | 60 | 1440 | "manual"): HoldUntil {
@@ -225,6 +266,55 @@ function migrateCatalog(catalog: Exercise[] | undefined): Exercise[] {
   return changed ? next : catalog;
 }
 
+function parseStarter(
+  pool: Exercise[],
+  perfs: StarterPerf[],
+): { ok: true; rows: StarterPerf[] } | { ok: false; error: string } {
+  if (!Array.isArray(perfs) || perfs.length !== 3) {
+    return { ok: false, error: "Il faut 3 exos classés." };
+  }
+  const ids = perfs.map((p) => p.exerciseId);
+  if (new Set(ids).size !== 3) return { ok: false, error: "Choisis 3 exos différents." };
+  const rows: StarterPerf[] = [];
+  for (const p of perfs) {
+    const ex = findExercise(p.exerciseId, pool);
+    if (!ex?.official || !isClassifiedLift(p.exerciseId, pool)) {
+      return { ok: false, error: "Choisis un exo classé du catalogue." };
+    }
+    const weight = Math.round(Number(p.weight) * 10) / 10;
+    const reps = Number(p.reps);
+    if (!(weight > 0) || !Number.isInteger(reps) || reps < 1 || reps > 30) {
+      return { ok: false, error: "Charge > 0 kg (1 décimale), reps entier de 1 à 30." };
+    }
+    rows.push({ exerciseId: p.exerciseId, weight, reps });
+  }
+  return { ok: true, rows };
+}
+
+function perfRows(userId: string, rows: StarterPerf[], date: string): DeclaredPerf[] {
+  const now = new Date().toISOString();
+  return rows.map((r) => ({
+    id: uid(),
+    userId,
+    exerciseId: r.exerciseId,
+    weight: r.weight,
+    reps: r.reps,
+    date,
+    updatedAt: now,
+  }));
+}
+
+function linkFriends(map: Record<string, string[]>, a: string, b: string): Record<string, string[]> {
+  const next = { ...map };
+  const left = new Set(next[a] ?? []);
+  left.add(b);
+  const right = new Set(next[b] ?? []);
+  right.add(a);
+  next[a] = [...left];
+  next[b] = [...right];
+  return next;
+}
+
 function purgeUserFrom(s: OrbitData, userId: string): Partial<OrbitData> {
   const workouts = s.workouts.filter((w) => w.userId !== userId);
   const wids = new Set(workouts.map((w) => w.id));
@@ -235,8 +325,6 @@ function purgeUserFrom(s: OrbitData, userId: string): Partial<OrbitData> {
   }
   const restByUser = { ...s.restByUser };
   delete restByUser[userId];
-  const mutedUntil = { ...s.mutedUntil };
-  delete mutedUntil[userId];
   const lastSentAt = { ...s.lastSentAt };
   delete lastSentAt[userId];
   const lastText = { ...s.lastText };
@@ -245,6 +333,8 @@ function purgeUserFrom(s: OrbitData, userId: string): Partial<OrbitData> {
   delete floodUntil[userId];
   const likes: Record<string, string[]> = {};
   for (const [k, v] of Object.entries(s.likes)) likes[k] = v.filter((id) => id !== userId);
+  const mutedUntil = { ...normalizeMuted(s.mutedUntil) };
+  mutedUntil[userId] = 0;
   return {
     users: s.users.filter((u) => u.id !== userId),
     workouts,
@@ -255,6 +345,7 @@ function purgeUserFrom(s: OrbitData, userId: string): Partial<OrbitData> {
     posts: s.posts.filter((p) => p.authorId !== userId),
     likes,
     friendsByUser,
+    friendRequests: normalizeRequests(s.friendRequests).filter((r) => r.fromId !== userId && r.toId !== userId),
     restByUser,
     declaredPerfs: s.declaredPerfs.filter((d) => d.userId !== userId),
     weightLogs: s.weightLogs.filter((l) => l.userId !== userId),
@@ -309,10 +400,13 @@ export const useOrbitStore = create<OrbitState>()(
         const programs = [...extras, ...(s.programs ?? []).filter((p) => p.builtin || (p.ownerId && keep.has(p.ownerId)))];
         const friendsByUser: Record<string, string[]> = {};
         for (const u of users) {
-          friendsByUser[u.id] = (s.friendsByUser?.[u.id] ?? []).filter((id) => keep.has(id));
+          friendsByUser[u.id] = (s.friendsByUser?.[u.id] ?? []).filter((id) => keep.has(id) && id !== u.id);
         }
         const restByUser: Record<string, RestState | null> = {};
         for (const u of users) restByUser[u.id] = s.restByUser?.[u.id] ?? null;
+        const friendRequests = normalizeRequests(s.friendRequests).filter(
+          (r) => keep.has(r.fromId) && keep.has(r.toId) && r.fromId !== r.toId,
+        );
         set({
           users,
           sessionUserId: s.sessionUserId && keep.has(s.sessionUserId) ? s.sessionUserId : null,
@@ -326,13 +420,14 @@ export const useOrbitStore = create<OrbitState>()(
             Object.entries(s.likes ?? {}).map(([k, v]) => [k, v.filter((id) => keep.has(id))]),
           ),
           friendsByUser,
+          friendRequests,
           restByUser,
           declaredPerfs: (s.declaredPerfs ?? []).filter((d) => keep.has(d.userId)),
           weightLogs: (s.weightLogs ?? []).filter((l) => keep.has(l.userId)),
           catalog: migrateCatalog(s.catalog),
           messages: (s.messages ?? []).filter((m) => keep.has(m.userId)),
-          mutedUntil: s.mutedUntil ?? {},
-          chatClosedUntil: s.chatClosedUntil ?? null,
+          mutedUntil: normalizeMuted(s.mutedUntil),
+          chatClosedUntil: normalizeClosed(s.chatClosedUntil),
           lastSentAt: s.lastSentAt ?? {},
           lastText: s.lastText ?? {},
           floodUntil: s.floodUntil ?? {},
@@ -349,6 +444,9 @@ export const useOrbitStore = create<OrbitState>()(
         if (!opts.sex || opts.age < 13 || opts.age > 80 || opts.height < 120 || opts.bodyweight < 30) {
           return { ok: false, error: "Profil incomplet." };
         }
+        const pool = poolFrom(get());
+        const parsed = parseStarter(pool, opts.perfs);
+        if (!parsed.ok) return parsed;
         const user: User = {
           id: uid(),
           pseudo: opts.pseudo.trim(),
@@ -359,16 +457,28 @@ export const useOrbitStore = create<OrbitState>()(
           height: opts.height,
           level: "debutant",
           goal: "force",
+          theme: "or",
+          glow: "normal",
           createdAt: new Date().toISOString(),
         };
         const today = todayKey();
-        set((s) => ({
+        const declared = perfRows(user.id, parsed.rows, today);
+        const s = get();
+        const afterDeclared = [...s.declaredPerfs, ...declared];
+        const before = snap(s, user);
+        const after = snap({ ...s, declaredPerfs: afterDeclared }, user);
+        const events = diffRankEvents(before, after);
+        const orbit = computeGlobalOrbit(user, s.sets, s.workouts, afterDeclared, pool);
+        set({
           users: [...s.users, user],
           sessionUserId: user.id,
           friendsByUser: { ...s.friendsByUser, [user.id]: [] },
           weightLogs: [...s.weightLogs, { id: uid(), userId: user.id, kg: opts.bodyweight, date: today }],
-        }));
-        return { ok: true, user };
+          declaredPerfs: afterDeclared,
+          rankQueue: events.length ? [...s.rankQueue, ...events] : s.rankQueue,
+          notice: `Rang calculé · ${orbit.label}`,
+        });
+        return { ok: true, user, label: orbit.label };
       },
       login: (pseudo, password) => {
         const p = pseudo.trim().toLowerCase();
@@ -384,16 +494,25 @@ export const useOrbitStore = create<OrbitState>()(
         const id = get().sessionUserId;
         if (!id) return;
         const today = todayKey();
+        const clean: ProfilePatch = { ...patch };
+        if (clean.theme != null && !isThemeId(clean.theme)) delete clean.theme;
+        if (clean.glow != null && !isGlow(clean.glow)) delete clean.glow;
+        const keys = Object.keys(clean) as (keyof ProfilePatch)[];
+        const appearanceOnly = keys.length > 0 && keys.every((k) => k === "theme" || k === "glow");
         set((s) => {
           let extra: Partial<OrbitData> = {};
-          if (typeof patch.bodyweight === "number") {
-            extra = applyBodyweight(s, id, Math.round(patch.bodyweight * 10) / 10, today);
+          if (typeof clean.bodyweight === "number") {
+            extra = applyBodyweight(s, id, Math.round(clean.bodyweight * 10) / 10, today);
           }
-          const users = (extra.users ?? s.users).map((u) => (u.id === id ? { ...u, ...patch } : u));
+          const users = (extra.users ?? s.users).map((u) => (u.id === id ? { ...u, ...clean } : u));
           return {
             ...extra,
             users,
-            notice: typeof patch.bodyweight === "number" ? "Poids mis à jour" : "Profil mis à jour",
+            notice: appearanceOnly
+              ? s.notice
+              : typeof clean.bodyweight === "number"
+                ? "Poids mis à jour"
+                : "Profil mis à jour",
           };
         });
       },
@@ -410,29 +529,120 @@ export const useOrbitStore = create<OrbitState>()(
         }));
         return { ok: true };
       },
-      addFriend: (pseudo) => {
-        const id = get().sessionUserId;
-        if (!id) return { ok: false, error: "Pas de session." };
-        const p = pseudo.trim().toLowerCase();
-        const other = get().users.find((u) => u.pseudo.toLowerCase() === p && !u.isNpc);
-        if (!other) return { ok: false, error: "Aucun compte avec ce pseudo." };
-        if (other.id === id) return { ok: false, error: "C’est toi." };
-        const cur = get().friendsByUser[id] ?? [];
-        if (cur.includes(other.id)) return { ok: false, error: "Déjà dans tes amis." };
+      requestFriend: (userId) => {
+        const me = sessionUser(get());
+        if (!me) return { ok: false, error: "Pas de session." };
+        const other = get().users.find((u) => u.id === userId && !u.isNpc);
+        if (!other) return { ok: false, error: "Ce compte n’existe plus." };
+        if (other.id === me.id) return { ok: false, error: "C’est toi." };
+        const s = get();
+        const friends = s.friendsByUser[me.id] ?? [];
+        if (friends.includes(other.id)) return { ok: false, error: "Déjà amis." };
+        const pending = normalizeRequests(s.friendRequests).find(
+          (r) =>
+            r.status === "pending" &&
+            ((r.fromId === me.id && r.toId === other.id) || (r.fromId === other.id && r.toId === me.id)),
+        );
+        if (pending) {
+          return {
+            ok: false,
+            error: pending.fromId === me.id ? "Demande déjà envoyée." : "Cette personne t’a déjà envoyé une demande.",
+          };
+        }
+        const reusable = normalizeRequests(s.friendRequests).find(
+          (r) => r.fromId === me.id && r.toId === other.id && r.status !== "pending",
+        );
+        if (reusable) {
+          set({
+            friendRequests: normalizeRequests(s.friendRequests).map((r) =>
+              r.id === reusable.id ? { ...r, status: "pending" as const, createdAt: new Date().toISOString() } : r,
+            ),
+          });
+          return { ok: true };
+        }
+        const row: FriendRequest = {
+          id: uid(),
+          fromId: me.id,
+          toId: other.id,
+          status: "pending",
+          createdAt: new Date().toISOString(),
+        };
+        set({ friendRequests: [...normalizeRequests(s.friendRequests), row] });
+        return { ok: true };
+      },
+      acceptFriendRequest: (id) => {
+        const me = sessionUser(get());
+        if (!me) return { ok: false, error: "Pas de session." };
+        const req = normalizeRequests(get().friendRequests).find((r) => r.id === id);
+        if (!req || req.status !== "pending" || req.toId !== me.id) {
+          return { ok: false, error: "Demande introuvable." };
+        }
+        const from = get().users.find((u) => u.id === req.fromId && !u.isNpc);
+        if (!from) return { ok: false, error: "Ce compte n’existe plus." };
         set((s) => ({
-          friendsByUser: { ...s.friendsByUser, [id]: [...(s.friendsByUser[id] ?? []), other.id] },
+          friendsByUser: linkFriends(s.friendsByUser, me.id, from.id),
+          friendRequests: normalizeRequests(s.friendRequests).map((r) =>
+            r.id === req.id ? { ...r, status: "accepted" as const } : r,
+          ),
         }));
         return { ok: true };
       },
+      declineFriendRequest: (id) => {
+        const me = sessionUser(get());
+        if (!me) return { ok: false, error: "Pas de session." };
+        const req = normalizeRequests(get().friendRequests).find((r) => r.id === id);
+        if (!req || req.status !== "pending" || req.toId !== me.id) {
+          return { ok: false, error: "Demande introuvable." };
+        }
+        set((s) => ({
+          friendRequests: normalizeRequests(s.friendRequests).map((r) =>
+            r.id === req.id ? { ...r, status: "declined" as const } : r,
+          ),
+        }));
+        return { ok: true };
+      },
+      cancelFriendRequest: (id) => {
+        const me = sessionUser(get());
+        if (!me) return;
+        set((s) => ({
+          friendRequests: normalizeRequests(s.friendRequests).filter(
+            (r) => !(r.id === id && r.fromId === me.id && r.status === "pending"),
+          ),
+        }));
+      },
       removeFriend: (fid) => {
         const id = get().sessionUserId;
-        if (!id) return;
+        if (!id || id === fid) return;
         set((s) => ({
           friendsByUser: {
             ...s.friendsByUser,
             [id]: (s.friendsByUser[id] ?? []).filter((x) => x !== fid),
+            [fid]: (s.friendsByUser[fid] ?? []).filter((x) => x !== id),
           },
         }));
+      },
+      declareStarter: (perfs) => {
+        const s = get();
+        const user = sessionUser(s);
+        if (!user) return { ok: false, error: "Pas de session." };
+        const pool = poolFrom(s);
+        const parsed = parseStarter(pool, perfs);
+        if (!parsed.ok) return parsed;
+        const today = todayKey();
+        const fresh = perfRows(user.id, parsed.rows, today);
+        const drop = new Set(parsed.rows.map((r) => r.exerciseId));
+        const next = [
+          ...s.declaredPerfs.filter((d) => !(d.userId === user.id && d.date === today && drop.has(d.exerciseId))),
+          ...fresh,
+        ];
+        const events = diffRankEvents(snap(s, user), snap({ ...s, declaredPerfs: next }, user));
+        const orbit = computeGlobalOrbit(user, s.sets, s.workouts, next, pool);
+        set({
+          declaredPerfs: next,
+          rankQueue: events.length ? [...s.rankQueue, ...events] : s.rankQueue,
+          notice: `Rang calculé · ${orbit.label}`,
+        });
+        return { ok: true, label: orbit.label };
       },
       createProgram: (name, from) => {
         const userId = get().sessionUserId;
@@ -831,16 +1041,12 @@ export const useOrbitStore = create<OrbitState>()(
         const user = sessionUser(get());
         if (!user?.isAdmin) return;
         if (userId === user.id || userId === ADMIN_ID) return;
-        set((s) => ({ mutedUntil: { ...s.mutedUntil, [userId]: toHold(minutes) } }));
+        set((s) => ({ mutedUntil: { ...normalizeMuted(s.mutedUntil), [userId]: toHold(minutes) } }));
       },
       unmuteUser: (userId) => {
         const user = sessionUser(get());
         if (!user?.isAdmin) return;
-        set((s) => {
-          const mutedUntil = { ...s.mutedUntil };
-          delete mutedUntil[userId];
-          return { mutedUntil };
-        });
+        set((s) => ({ mutedUntil: { ...normalizeMuted(s.mutedUntil), [userId]: 0 } }));
       },
       closeChat: (minutes) => {
         const user = sessionUser(get());
@@ -850,17 +1056,30 @@ export const useOrbitStore = create<OrbitState>()(
       openChat: () => {
         const user = sessionUser(get());
         if (!user?.isAdmin) return;
-        set({ chatClosedUntil: null });
+        set({ chatClosedUntil: 0 });
       },
       deleteAccount: (userId) => {
         const user = sessionUser(get());
         if (!user?.isAdmin) return { ok: false, error: "Admin seulement." };
-        const target = get().users.find((u) => u.id === userId);
+        const target = get().users.find((u) => u.id === userId && !u.isNpc);
         if (!target) return { ok: false, error: "Compte introuvable." };
-        if (target.isAdmin || target.id === user.id || target.pseudo === "admin") {
+        if (target.pseudo.toLowerCase() === "admin" || target.id === ADMIN_ID) {
           return { ok: false, error: "Impossible de supprimer l’admin." };
         }
         set((s) => ({ ...purgeUserFrom(s, userId), notice: `@${target.pseudo} supprimé` }));
+        return { ok: true };
+      },
+      deleteOwnAccount: (pseudo, password) => {
+        const user = sessionUser(get());
+        if (!user) return { ok: false, error: "Pas de session." };
+        if (user.pseudo.toLowerCase() === "admin" || user.id === ADMIN_ID) {
+          return { ok: false, error: "Le compte admin principal ne peut pas être supprimé." };
+        }
+        if (pseudo !== user.pseudo) return { ok: false, error: "Pseudo incorrect." };
+        if (user.passwordHash !== hashPassword(password)) {
+          return { ok: false, error: "Mot de passe incorrect." };
+        }
+        set((s) => ({ ...purgeUserFrom(s, user.id), notice: "Compte supprimé" }));
         return { ok: true };
       },
       dismissNotice: () => set({ notice: null }),
@@ -886,6 +1105,7 @@ export const useOrbitStore = create<OrbitState>()(
         posts: s.posts,
         likes: s.likes,
         friendsByUser: s.friendsByUser,
+        friendRequests: s.friendRequests,
         restByUser: s.restByUser,
         declaredPerfs: s.declaredPerfs,
         weightLogs: s.weightLogs,

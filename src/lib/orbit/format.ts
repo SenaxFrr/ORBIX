@@ -149,7 +149,7 @@ export function formatClock(iso: string): string {
 }
 
 export function formatHold(until: number | "manual" | null | undefined, now = Date.now()): string {
-  if (until == null) return "";
+  if (until == null || until === 0) return "";
   if (until === "manual") return "jusqu’à levée";
   const ms = Math.max(0, until - now);
   const m = Math.ceil(ms / 60000);
@@ -157,4 +157,11 @@ export function formatHold(until: number | "manual" | null | undefined, now = Da
   if (m < 60) return `${m} min`;
   const h = Math.ceil(m / 60);
   return h === 1 ? "1 h" : `${h} h`;
+}
+
+export function muteStatusLabel(until: number | "manual" | null | undefined, now = Date.now()): string {
+  if (until == null || until === 0) return "ok";
+  if (until === "manual") return "muet manuel";
+  if (until <= now) return "ok";
+  return `muet ${formatHold(until, now)}`;
 }

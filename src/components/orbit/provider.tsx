@@ -2,10 +2,19 @@ import { useEffect } from "react";
 import { Toaster, toast } from "sonner";
 import { OrbitGlyph } from "./glyph";
 import { RankStage } from "./rank-stage";
-import { useOrbitStore } from "@/lib/orbit/store";
+import { applyAccountTheme } from "@/lib/orbit/theme";
+import { useOrbitStore, useSessionUser } from "@/lib/orbit/store";
 
 export function OrbitProvider({ children }: { children: React.ReactNode }) {
   const hydrated = useOrbitStore((s) => s.hydrated);
+  const theme = useSessionUser()?.theme;
+  const glow = useSessionUser()?.glow;
+  const userId = useSessionUser()?.id;
+
+  useEffect(() => {
+    if (!hydrated) return;
+    applyAccountTheme(theme, glow);
+  }, [hydrated, theme, glow, userId]);
 
   useEffect(() => {
     const persist = useOrbitStore.persist;

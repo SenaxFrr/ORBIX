@@ -3,15 +3,18 @@ import { ChevronDown, ChevronLeft, ChevronUp, Pencil, Plus, Trash2 } from "lucid
 import { useEffect, useState } from "react";
 import { ExercisePicker } from "@/components/orbit/exercise-picker";
 import { EmptyState } from "@/components/orbit/empty-state";
+import { RankBadge } from "@/components/orbit/rank-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { CATALOG_GROUPS, findExercise, GROUP_LABEL, poolFrom } from "@/lib/orbit/exercises";
-import { formatDateLong, formatHold, formatRest, formatSeries, formatWeight } from "@/lib/orbit/format";
+import { formatDateLong, formatHold, formatRest, formatSeries, formatWeight, muteStatusLabel } from "@/lib/orbit/format";
 import { TAG_LABEL } from "@/lib/orbit/labels";
+import { computeGlobalOrbit } from "@/lib/orbit/ranks";
+import { ADMIN_ID } from "@/lib/orbit/seed";
 import type { Exercise, HoldUntil, MuscleGroup, Post, PostTag, Program } from "@/lib/orbit/types";
-import { isHeld, useOrbitStore, useSessionUser } from "@/lib/orbit/store";
+import { isHeld, useOrbitStore, usePool, useSessionUser } from "@/lib/orbit/store";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/app/admin")({ component: AdminPage });
@@ -21,7 +24,7 @@ const TAGS: (PostTag | null)[] = [null, "Annonce", "Programme", "Conseils", "Eve
 function AdminPage() {
   const user = useSessionUser()!;
   const navigate = useNavigate();
-  const [tab, setTab] = useState<"feed" | "programmes" | "exercices" | "comptes">("feed");
+  const [tab, setTab] = useState<"feed" | "programmes" | "exercices" | "comptes" | "membres">("feed");
 
   useEffect(() => {
     if (!user.isAdmin) void navigate({ to: "/app/profil" });
@@ -41,30 +44,36 @@ function AdminPage() {
         </button>
         <h1 className="font-display text-2xl font-semibold">Admin</h1>
       </header>
-      <div className="mb-4 mt-3 grid grid-cols-4 gap-1 rounded-xl bg-surface-2 p-1">
+      <div className="mb-4 mt-3 flex gap-1 overflow-x-auto rounded-xl bg-surface-2 p-1">
         <button
-          className={cn("h-10 rounded-lg text-xs", tab === "feed" ? "bg-accent text-accent-fg" : "text-muted")}
+          className={cn("h-10 shrink-0 rounded-lg px-3 text-xs", tab === "feed" ? "bg-accent text-accent-fg" : "text-muted")}
           onClick={() => setTab("feed")}
         >
           Feed
         </button>
         <button
-          className={cn("h-10 rounded-lg text-xs", tab === "programmes" ? "bg-accent text-accent-fg" : "text-muted")}
+          className={cn("h-10 shrink-0 rounded-lg px-3 text-xs", tab === "programmes" ? "bg-accent text-accent-fg" : "text-muted")}
           onClick={() => setTab("programmes")}
         >
           Programmes
         </button>
         <button
-          className={cn("h-10 rounded-lg text-xs", tab === "exercices" ? "bg-accent text-accent-fg" : "text-muted")}
+          className={cn("h-10 shrink-0 rounded-lg px-3 text-xs", tab === "exercices" ? "bg-accent text-accent-fg" : "text-muted")}
           onClick={() => setTab("exercices")}
         >
           Exercices
         </button>
         <button
-          className={cn("h-10 rounded-lg text-xs", tab === "comptes" ? "bg-accent text-accent-fg" : "text-muted")}
+          className={cn("h-10 shrink-0 rounded-lg px-3 text-xs", tab === "comptes" ? "bg-accent text-accent-fg" : "text-muted")}
           onClick={() => setTab("comptes")}
         >
           Comptes
+        </button>
+        <button
+          className={cn("h-10 shrink-0 rounded-lg px-3 text-xs", tab === "membres" ? "bg-accent text-accent-fg" : "text-muted")}
+          onClick={() => setTab("membres")}
+        >
+          Membres
         </button>
       </div>
       {tab === "feed" ? (
@@ -73,6 +82,8 @@ function AdminPage() {
         <AdminPrograms />
       ) : tab === "exercices" ? (
         <AdminExercises />
+      ) : tab === "membres" ? (
+        <AdminMembers />
       ) : (
         <AdminUsers />
       )}
@@ -578,6 +589,106 @@ function ExoSheet({
           </Button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function AdminMembers() {
+  const store = useOrbitStore();
+  const me = useSessionUser()!;
+  const pool = usePool();
+  const navigate = useNavigate();
+  const [q, setQ] = useState("");
+  const [now, setNow] = useState(Date.now());
+  const [del, setDel] = useState<{ id: string; pseudo: string } | null>(null);
+  useEffect(() => {
+    const t = window.setInterval(() => setNow(Date.now()), 5000);
+    return () => window.clearInterval(t);
+  }, []);
+  const all = store.users.filter((u) => !u.isNpc);
+  const needle = q.trim().toLowerCase();
+  const members = all
+    .filter((u) => !needle || u.pseudo.toLowerCase().includes(needle))
+    .sort((a, b) => a.pseudo.localeCompare(b.pseudo, "fr"));
+
+  if (all.length === 0) return <p className="text-sm text-muted">Aucun membre.</p>;
+
+  return (
+    <div>
+      <Input
+        placeholder="Rechercher un pseudo"
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+      />
+      {members.length === 0 ? (
+        <p className="mt-4 text-sm text-muted">Aucun membre.</p>
+      ) : (
+        <ul className="mt-3 space-y-2">
+          {members.map((u) => {
+            const orbit = computeGlobalOrbit(u, store.sets, store.workouts, store.declaredPerfs, pool);
+            const self = u.id === me.id;
+            const principal = u.pseudo.toLowerCase() === "admin" || u.id === ADMIN_ID;
+            return (
+              <li key={u.id} className="glass rounded-2xl px-3 py-3">
+                <button
+                  className="flex w-full items-center justify-between gap-2 text-left"
+                  onClick={() => void navigate({ to: "/app/u/$userId", params: { userId: u.id } })}
+                >
+                  <span className="min-w-0">
+                    <span className="flex items-center gap-2">
+                      <span className="truncate font-medium">@{u.pseudo}</span>
+                      {u.isAdmin ? (
+                        <span className="rounded-full bg-accent/15 px-2 py-0.5 text-[11px] text-accent">Admin</span>
+                      ) : null}
+                    </span>
+                    <span className="mt-1 block text-xs text-muted">{muteStatusLabel(store.mutedUntil[u.id], now)}</span>
+                  </span>
+                  <RankBadge rank={orbit.rank} division={orbit.division} label={orbit.label} size="sm" />
+                </button>
+                {self ? null : (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {u.id === ADMIN_ID ? null : (
+                      <>
+                        <Button size="sm" variant="secondary" onClick={() => store.muteUser(u.id, 15)}>
+                          Mute 15 min
+                        </Button>
+                        <Button size="sm" variant="secondary" onClick={() => store.muteUser(u.id, 60)}>
+                          1 h
+                        </Button>
+                        <Button size="sm" variant="secondary" onClick={() => store.muteUser(u.id, 1440)}>
+                          24 h
+                        </Button>
+                        <Button size="sm" variant="secondary" onClick={() => store.muteUser(u.id, "manual")}>
+                          jusqu’à unmute
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => store.unmuteUser(u.id)}>
+                          Unmute
+                        </Button>
+                      </>
+                    )}
+                    {principal ? null : (
+                      <Button size="sm" variant="danger" onClick={() => setDel({ id: u.id, pseudo: u.pseudo })}>
+                        Supprimer
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {del ? (
+        <Confirm
+          title={`Supprimer @${del.pseudo} ?`}
+          ok="Supprimer"
+          onCancel={() => setDel(null)}
+          onOk={() => {
+            store.deleteAccount(del.id);
+            setDel(null);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

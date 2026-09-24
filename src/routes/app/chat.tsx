@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { ResumeBanner } from "@/components/orbit/app-header";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ export const Route = createFileRoute("/app/chat")({ component: ChatPage });
 function ChatPage() {
   const store = useOrbitStore();
   const user = useSessionUser()!;
+  const navigate = useNavigate();
   const [text, setText] = useState("");
   const [err, setErr] = useState("");
   const [now, setNow] = useState(Date.now());
@@ -96,7 +97,16 @@ function ChatPage() {
               >
                 <div className="flex items-baseline justify-between gap-2">
                   <p className="truncate text-xs font-medium">
-                    @{author?.pseudo ?? "parti"}
+                    {author ? (
+                      <button
+                        className="truncate"
+                        onClick={() => void navigate({ to: "/app/u/$userId", params: { userId: author.id } })}
+                      >
+                        @{author.pseudo}
+                      </button>
+                    ) : (
+                      <span>@parti</span>
+                    )}
                     {author?.isAdmin ? <span className="ml-1 text-accent">admin</span> : null}
                   </p>
                   <span className="shrink-0 text-[10px] text-subtle num">{formatClock(m.createdAt)}</span>

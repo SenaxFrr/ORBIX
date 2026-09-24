@@ -2,12 +2,13 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { OrbitGlyph } from "@/components/orbit/glyph";
 import { SplashMark } from "@/components/orbit/provider";
+import { StarterLiftsForm } from "@/components/orbit/starter-lifts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatAge, formatBodyweight, formatHeight } from "@/lib/orbit/format";
 import { SEX_LABEL } from "@/lib/orbit/labels";
-import type { Sex } from "@/lib/orbit/types";
+import type { Sex, StarterPerf } from "@/lib/orbit/types";
 import { useOrbitStore } from "@/lib/orbit/store";
 import { cn } from "@/lib/utils";
 
@@ -15,7 +16,7 @@ export const Route = createFileRoute("/connexion")({ component: Connexion });
 
 function Connexion() {
   const [mode, setMode] = useState<"login" | "register">("login");
-  const [step, setStep] = useState<0 | 1>(0);
+  const [step, setStep] = useState<0 | 1 | 2>(0);
   const [pseudo, setPseudo] = useState("");
   const [password, setPassword] = useState("");
   const [sex, setSex] = useState<Sex>("homme");
@@ -47,8 +48,8 @@ function Connexion() {
     goApp();
   }
 
-  function submitRegister() {
-    if (busy) return;
+  function submitRegister(perfs: StarterPerf[]) {
+    if (busy) return { ok: false as const, error: "Patiente." };
     setBusy(true);
     setError("");
     const r = register({
@@ -58,13 +59,15 @@ function Connexion() {
       age: Number(age),
       height: Number(height),
       bodyweight: Number(String(weight).replace(",", ".")),
+      perfs,
     });
     setBusy(false);
     if (!r.ok) {
       setError(r.error);
-      return;
+      return r;
     }
     goApp();
+    return { ok: true as const };
   }
 
   const athleteOk =
@@ -85,28 +88,30 @@ function Connexion() {
         <p className="text-sm text-muted">Force, rangs, séances. Simple.</p>
       </div>
 
-      <div className="mb-6 grid grid-cols-2 gap-1 rounded-xl bg-surface-2 p-1">
-        <button
-          className={cn("h-10 rounded-lg text-sm", mode === "login" && "bg-accent text-accent-fg")}
-          onClick={() => {
-            setMode("login");
-            setStep(0);
-            setError("");
-          }}
-        >
-          Connexion
-        </button>
-        <button
-          className={cn("h-10 rounded-lg text-sm", mode === "register" && "bg-accent text-accent-fg")}
-          onClick={() => {
-            setMode("register");
-            setStep(0);
-            setError("");
-          }}
-        >
-          Créer un compte
-        </button>
-      </div>
+      {step < 2 ? (
+        <div className="mb-6 grid grid-cols-2 gap-1 rounded-xl bg-surface-2 p-1">
+          <button
+            className={cn("h-10 rounded-lg text-sm", mode === "login" && "bg-accent text-accent-fg")}
+            onClick={() => {
+              setMode("login");
+              setStep(0);
+              setError("");
+            }}
+          >
+            Connexion
+          </button>
+          <button
+            className={cn("h-10 rounded-lg text-sm", mode === "register" && "bg-accent text-accent-fg")}
+            onClick={() => {
+              setMode("register");
+              setStep(0);
+              setError("");
+            }}
+          >
+            Créer un compte
+          </button>
+        </div>
+      ) : null}
 
       {mode === "login" ? (
         <form onSubmit={onLogin} className="grid gap-3">
@@ -159,7 +164,7 @@ function Connexion() {
             Continuer
           </Button>
         </form>
-      ) : (
+      ) : step === 1 ? (
         <div className="grid gap-3">
           <p className="text-sm text-muted">Sexe et âge servent aux rangs. Taille et poids sont suivis, ils n’entrent pas dans le score.</p>
           <div className="flex gap-1">
@@ -189,10 +194,18 @@ function Connexion() {
             <Input className="mt-1" inputMode="decimal" value={weight} onChange={(e) => setWeight(e.target.value)} />
           </div>
           {error ? <p className="text-sm text-danger">{error}</p> : null}
-          <Button size="lg" disabled={!athleteOk || busy} onClick={submitRegister}>
-            Créer le compte
+          <Button size="lg" disabled={!athleteOk || busy} onClick={() => setStep(2)}>
+            Continuer
           </Button>
           <Button variant="ghost" onClick={() => setStep(0)}>
+            Retour
+          </Button>
+        </div>
+      ) : (
+        <div className="grid gap-3">
+          <StarterLiftsForm submitLabel="Entrer dans ORBIT" busy={busy} onSubmit={submitRegister} />
+          {error ? <p className="text-sm text-danger">{error}</p> : null}
+          <Button variant="ghost" onClick={() => setStep(1)}>
             Retour
           </Button>
         </div>

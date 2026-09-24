@@ -1,6 +1,8 @@
 export type Sex = "homme" | "femme" | "autre";
 export type Level = "debutant" | "intermediaire" | "avance";
 export type Goal = "force" | "hypertrophie" | "perte" | "athletique";
+export type ThemeId = "or" | "teal" | "violet" | "rouge" | "bleu" | "vert";
+export type GlowLevel = "faible" | "normal" | "fort";
 export type MuscleGroup =
   | "pectoraux"
   | "dos"
@@ -45,6 +47,8 @@ export interface User {
   height: number;
   level?: Level;
   goal?: Goal;
+  theme?: ThemeId;
+  glow?: GlowLevel;
   createdAt: string;
   isAdmin?: boolean;
   isNpc?: boolean;
@@ -214,5 +218,19 @@ export interface ChatMessage {
   userId: string;
   text: string;
   createdAt: string;
+}
+
+export interface FriendRequest {
+  id: string;
+  fromId: string;
+  toId: string;
+  status: "pending" | "accepted" | "declined";
+  createdAt: string;
+}
+
+export interface StarterPerf {
+  exerciseId: string;
+  weight: number;
+  reps: number;
 }
 

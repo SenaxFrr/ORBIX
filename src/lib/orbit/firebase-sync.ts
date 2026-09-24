@@ -1,7 +1,9 @@
 import { onValue, ref, set } from "firebase/database";
 import { toast } from "sonner";
 import { rtdb } from "@/lib/firebase";
-import { useOrbitStore } from "./store";
+import { isGlow, isThemeId } from "./theme";
+import { normalizeClosed, normalizeMuted, normalizeRequests, useOrbitStore } from "./store";
+import type { User } from "./types";
 
 const WORLD_PATH = "orbit/world";
 
@@ -15,6 +17,7 @@ const SHARED = [
   "posts",
   "likes",
   "friendsByUser",
+  "friendRequests",
   "declaredPerfs",
   "weightLogs",
   "catalog",
@@ -23,10 +26,23 @@ const SHARED = [
   "chatClosedUntil",
 ] as const;
 
+function cleanUsers(v: unknown): User[] | null {
+  if (!Array.isArray(v)) return null;
+  return v.map((raw) => {
+    const u = { ...(raw as User) };
+    if (!isThemeId(u.theme)) delete u.theme;
+    if (!isGlow(u.glow)) delete u.glow;
+    return u;
+  });
+}
+
 function pickShared(s: Record<string, unknown>) {
   const out: Record<string, unknown> = {};
   for (const k of SHARED) {
-    if (k === "chatClosedUntil") out[k] = s[k] ?? 0;
+    if (k === "chatClosedUntil") out[k] = normalizeClosed(s[k]);
+    else if (k === "mutedUntil") out[k] = normalizeMuted(s[k]);
+    else if (k === "friendRequests") out[k] = normalizeRequests(s[k]);
+    else if (k === "users") out[k] = cleanUsers(s[k]) ?? [];
     else out[k] = s[k] ?? null;
   }
   return out;
@@ -62,8 +78,15 @@ export function startOrbitFirebaseSync() {
       if (remote && typeof remote === "object") {
         const patch: Record<string, unknown> = {};
         for (const k of SHARED) {
-          if (k === "chatClosedUntil") patch[k] = remote[k] ?? 0;
-          else if (remote[k] != null) patch[k] = remote[k];
+          if (k === "chatClosedUntil") patch[k] = normalizeClosed(remote[k]);
+          else if (k === "mutedUntil") {
+            if (remote[k] != null) patch[k] = normalizeMuted(remote[k]);
+          } else if (k === "friendRequests") {
+            patch[k] = Array.isArray(remote[k]) ? normalizeRequests(remote[k]) : [];
+          } else if (k === "users") {
+            const cleaned = cleanUsers(remote[k]);
+            if (cleaned) patch[k] = cleaned;
+          } else if (remote[k] != null) patch[k] = remote[k];
         }
         useOrbitStore.setState(patch as never);
         useOrbitStore.getState().ensureSeed();

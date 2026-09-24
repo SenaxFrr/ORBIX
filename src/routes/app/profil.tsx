@@ -1,14 +1,16 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { ChevronLeft, Shield, Trash2 } from "lucide-react";
+import { ChevronLeft, Shield } from "lucide-react";
 import { useState } from "react";
 import { RankBadge } from "@/components/orbit/rank-badge";
+import { RankGateBanner } from "@/components/orbit/starter-lifts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatAge, formatBodyweight, formatFr, formatHeight } from "@/lib/orbit/format";
 import { GOAL_LABEL, LEVEL_LABEL, SEX_LABEL } from "@/lib/orbit/labels";
 import { computeGlobalOrbit, nextRankInfo } from "@/lib/orbit/ranks";
-import type { Goal, Level, Sex } from "@/lib/orbit/types";
+import { THEME_SWATCHES } from "@/lib/orbit/theme";
+import type { GlowLevel, Goal, Level, Sex } from "@/lib/orbit/types";
 import { useOrbitStore, usePool, useSessionUser } from "@/lib/orbit/store";
 import { cn } from "@/lib/utils";
 
@@ -28,7 +30,17 @@ function Profil() {
   const [curPw, setCurPw] = useState("");
   const [newPw, setNewPw] = useState("");
   const [pwErr, setPwErr] = useState("");
+  const [delStep, setDelStep] = useState<0 | 1 | 2>(0);
+  const [delPseudo, setDelPseudo] = useState("");
+  const [delPw, setDelPw] = useState("");
+  const [delErr, setDelErr] = useState("");
+  const [dropId, setDropId] = useState<string | null>(null);
   const initials = (user.firstName || user.pseudo).slice(0, 2).toUpperCase();
+  const incoming = store.friendRequests.filter((r) => r.toId === user.id && r.status === "pending");
+  const outgoing = store.friendRequests.filter((r) => r.fromId === user.id && r.status === "pending");
+  const theme = user.theme ?? "or";
+  const glow = user.glow ?? "normal";
+  const principal = user.pseudo.toLowerCase() === "admin";
 
   return (
     <main className="px-4 pb-28 pt-[calc(env(safe-area-inset-top)+8px)]">
@@ -72,7 +84,7 @@ function Profil() {
           <p className="mt-1 text-xs text-subtle">{progress.label}</p>
         </div>
       ) : (
-        <p className="mt-3 text-sm text-warn">{orbit.reason}</p>
+        <RankGateBanner />
       )}
 
       {user.isAdmin ? (
@@ -81,6 +93,50 @@ function Profil() {
           Admin
         </Button>
       ) : null}
+
+      <section className="mt-8">
+        <h2 className="text-sm font-medium">Apparence</h2>
+        <p className="text-xs text-muted">Uniquement sur ton compte. Le fond reste sombre.</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {THEME_SWATCHES.map((sw) => (
+            <button
+              key={sw.id}
+              aria-label={sw.label}
+              onClick={() => store.updateProfile({ theme: sw.id })}
+              className={cn(
+                "flex h-11 items-center gap-2 rounded-full bg-surface-2 px-3 text-sm",
+                theme === sw.id && "shadow-[var(--shadow-border)]",
+              )}
+            >
+              <span className="size-4 rounded-full" style={{ background: sw.hex }} />
+              {sw.label}
+            </button>
+          ))}
+        </div>
+        <div className="mt-3 flex gap-1">
+          {(["faible", "normal", "fort"] as GlowLevel[]).map((g) => (
+            <button
+              key={g}
+              onClick={() => store.updateProfile({ glow: g })}
+              className={cn(
+                "h-10 flex-1 rounded-lg text-sm capitalize",
+                glow === g ? "bg-accent text-accent-fg" : "bg-surface-2",
+              )}
+            >
+              {g}
+            </button>
+          ))}
+        </div>
+        <div className="mt-3 rounded-2xl bg-surface p-3">
+          <div className="flex items-center gap-2">
+            <span className="rounded-full bg-accent px-2 py-0.5 text-xs text-accent-fg">Badge</span>
+            <Button size="sm">Bouton</Button>
+          </div>
+          <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-surface-2">
+            <div className="h-full w-2/3 rounded-full bg-accent shadow-[var(--shadow-glow)]" />
+          </div>
+        </div>
+      </section>
 
       <section className="mt-8">
         <h2 className="text-sm font-medium">Identité</h2>
@@ -185,21 +241,87 @@ function Profil() {
       </section>
 
       <section className="mt-8">
+        <h2 className="flex items-center gap-2 text-sm font-medium">
+          Demandes
+          {incoming.length > 0 ? (
+            <span className="rounded-full bg-accent px-2 py-0.5 text-[11px] text-accent-fg num">{incoming.length}</span>
+          ) : null}
+        </h2>
+        {incoming.length === 0 && outgoing.length === 0 ? (
+          <p className="mt-2 text-sm text-muted">Aucune demande.</p>
+        ) : null}
+        {incoming.length > 0 ? (
+          <ul className="mt-3 space-y-2">
+            {incoming.map((r) => {
+              const from = store.users.find((u) => u.id === r.fromId && !u.isNpc);
+              if (!from) return null;
+              return (
+                <li key={r.id} className="rounded-xl bg-surface px-3 py-3">
+                  <button
+                    className="text-sm font-medium"
+                    onClick={() => void navigate({ to: "/app/u/$userId", params: { userId: from.id } })}
+                  >
+                    @{from.pseudo}
+                  </button>
+                  <div className="mt-2 flex gap-2">
+                    <Button size="sm" onClick={() => store.acceptFriendRequest(r.id)}>
+                      Accepter
+                    </Button>
+                    <Button size="sm" variant="secondary" onClick={() => store.declineFriendRequest(r.id)}>
+                      Refuser
+                    </Button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        ) : null}
+        {outgoing.length > 0 ? (
+          <ul className="mt-3 space-y-2">
+            {outgoing.map((r) => {
+              const to = store.users.find((u) => u.id === r.toId && !u.isNpc);
+              if (!to) return null;
+              return (
+                <li key={r.id} className="flex items-center justify-between gap-2 rounded-xl bg-surface px-3 py-2">
+                  <button
+                    className="min-w-0 truncate text-sm"
+                    onClick={() => void navigate({ to: "/app/u/$userId", params: { userId: to.id } })}
+                  >
+                    @{to.pseudo}
+                  </button>
+                  <Button size="sm" variant="ghost" onClick={() => store.cancelFriendRequest(r.id)}>
+                    Annuler
+                  </Button>
+                </li>
+              );
+            })}
+          </ul>
+        ) : null}
+      </section>
+
+      <section className="mt-8">
         <h2 className="text-sm font-medium">Amis</h2>
         <form
           className="mt-3 flex gap-2"
           onSubmit={(e) => {
             e.preventDefault();
-            const r = store.addFriend(pseudo);
-            if (!r.ok) setErr(r.error);
-            else {
-              setErr("");
-              setPseudo("");
+            const q = pseudo.trim().toLowerCase();
+            const found = store.users.find((u) => !u.isNpc && u.pseudo.toLowerCase() === q);
+            if (!found) {
+              setErr("Aucun compte avec ce pseudo.");
+              return;
             }
+            setErr("");
+            setPseudo("");
+            void navigate({ to: "/app/u/$userId", params: { userId: found.id } });
           }}
         >
-          <Input placeholder="Pseudo exact" value={pseudo} onChange={(e) => setPseudo(e.target.value)} />
-          <Button type="submit">Ajouter</Button>
+          <Input
+            placeholder="Rechercher un pseudo"
+            value={pseudo}
+            onChange={(e) => setPseudo(e.target.value)}
+          />
+          <Button type="submit">Voir</Button>
         </form>
         {err ? <p className="mt-1 text-xs text-danger">{err}</p> : null}
         <ul className="mt-3 space-y-1">
@@ -208,21 +330,20 @@ function Profil() {
             const fr = computeGlobalOrbit(f, store.sets, store.workouts, store.declaredPerfs, pool);
             return (
               <li key={f.id} className="flex h-12 items-center justify-between gap-2 rounded-xl bg-surface px-3">
-                <span className="min-w-0 truncate text-sm">@{f.pseudo}</span>
-                <RankBadge rank={fr.rank} division={fr.division} size="sm" />
                 <button
-                  className="flex size-10 items-center justify-center text-danger"
-                  onClick={() => store.removeFriend(f.id)}
-                  aria-label="Retirer"
+                  className="min-w-0 flex-1 truncate text-left text-sm"
+                  onClick={() => void navigate({ to: "/app/u/$userId", params: { userId: f.id } })}
                 >
-                  <Trash2 className="size-4" />
+                  @{f.pseudo}
                 </button>
+                <RankBadge rank={fr.rank} division={fr.division} size="sm" />
+                <Button size="sm" variant="ghost" onClick={() => setDropId(f.id)}>
+                  Retirer
+                </Button>
               </li>
             );
           })}
-          {friends.length === 0 ? (
-            <li className="text-sm text-muted">Personne pour l’instant. Ajoute un pseudo réel.</li>
-          ) : null}
+          {friends.length === 0 ? <li className="text-sm text-muted">Aucun ami pour l’instant.</li> : null}
         </ul>
       </section>
 
@@ -270,6 +391,98 @@ function Profil() {
       >
         Déconnexion
       </Button>
+
+      {principal ? null : (
+        <Button variant="danger" className="mt-3 w-full" onClick={() => setDelStep(1)}>
+          Supprimer mon compte
+        </Button>
+      )}
+
+      {dropId ? (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-bg/70 px-6">
+          <div className="glass-strong w-full max-w-sm rounded-2xl p-5">
+            <h2 className="font-display text-lg font-semibold">Retirer des amis</h2>
+            <div className="mt-4 flex gap-2">
+              <Button variant="secondary" className="flex-1" onClick={() => setDropId(null)}>
+                Annuler
+              </Button>
+              <Button
+                variant="danger"
+                className="flex-1"
+                onClick={() => {
+                  store.removeFriend(dropId);
+                  setDropId(null);
+                }}
+              >
+                Retirer
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {delStep === 1 ? (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-bg/70 px-6">
+          <div className="glass-strong w-full max-w-sm rounded-2xl p-5">
+            <h2 className="font-display text-lg font-semibold">Supprimer mon compte</h2>
+            <p className="mt-2 text-sm text-muted">
+              Cette action est définitive. Tes perfs, séances, messages et demandes d’amis seront effacés.
+            </p>
+            <div className="mt-4 flex gap-2">
+              <Button variant="secondary" className="flex-1" onClick={() => setDelStep(0)}>
+                Annuler
+              </Button>
+              <Button variant="danger" className="flex-1" onClick={() => setDelStep(2)}>
+                Continuer
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {delStep === 2 ? (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-bg/70 px-6">
+          <div className="glass-strong w-full max-w-sm rounded-2xl p-5">
+            <h2 className="font-display text-lg font-semibold">Confirme ton identité</h2>
+            <div className="mt-3 grid gap-2">
+              <Input
+                placeholder="Pseudo exact"
+                value={delPseudo}
+                onChange={(e) => setDelPseudo(e.target.value)}
+                autoComplete="off"
+              />
+              <Input
+                type="password"
+                placeholder="Mot de passe"
+                value={delPw}
+                onChange={(e) => setDelPw(e.target.value)}
+                autoComplete="current-password"
+              />
+              {delErr ? <p className="text-xs text-danger">{delErr}</p> : null}
+            </div>
+            <div className="mt-4 flex gap-2">
+              <Button variant="secondary" className="flex-1" onClick={() => setDelStep(0)}>
+                Annuler
+              </Button>
+              <Button
+                variant="danger"
+                className="flex-1"
+                disabled={delPseudo !== user.pseudo || delPw.length === 0}
+                onClick={() => {
+                  const r = store.deleteOwnAccount(delPseudo, delPw);
+                  if (!r.ok) {
+                    setDelErr(r.error);
+                    return;
+                  }
+                  void navigate({ to: "/connexion" });
+                }}
+              >
+                Supprimer
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }

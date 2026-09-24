@@ -16,7 +16,8 @@ function AppLayout() {
   const nested =
     /^\/app\/(programme|perfs|suivi)\/.+/.test(pathname) ||
     pathname.startsWith("/app/profil") ||
-    pathname.startsWith("/app/admin");
+    pathname.startsWith("/app/admin") ||
+    pathname.startsWith("/app/u/");
   const hideHeader =
     live || nested || pathname === "/app/feed";
 
