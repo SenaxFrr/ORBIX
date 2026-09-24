@@ -35,11 +35,10 @@ export function OrbitProvider({ children }: { children: React.ReactNode }) {
       .then((mod) => {
         if (!alive) return;
         stop = mod.startOrbitFirebaseSync();
-        toast.message("Sync cloud activée");
       })
       .catch((err) => {
         console.error(err);
-        toast.error("Sync Firebase échouée");
+        toast.message("Hors ligne");
       });
     return () => {
       alive = false;

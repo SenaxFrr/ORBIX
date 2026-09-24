@@ -139,6 +139,20 @@ export function monthKey(d = new Date()): { year: number; month: number } {
   return { year: p.year, month: p.month };
 }
 
+export function clockHm(iso: string): string {
+  const p = parisParts(new Date(iso));
+  return `${String(p.hour).padStart(2, "0")}:${String(p.minute).padStart(2, "0")}`;
+}
+
+export function daySeparatorLabel(iso: string): string {
+  const p = parisParts(new Date(iso));
+  const key = `${p.year}-${String(p.month).padStart(2, "0")}-${String(p.day).padStart(2, "0")}`;
+  const today = parisDateKey();
+  if (key === today) return "Aujourd’hui";
+  if (key === addDaysKey(today, -1)) return "Hier";
+  return formatDateFull(key);
+}
+
 export function formatClock(iso: string): string {
   const p = parisParts(new Date(iso));
   const hm = `${String(p.hour).padStart(2, "0")}:${String(p.minute).padStart(2, "0")}`;

@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { ResumeBanner } from "@/components/orbit/app-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { formatClock, formatHold } from "@/lib/orbit/format";
+import { clockHm, daySeparatorLabel, formatHold } from "@/lib/orbit/format";
 import { isHeld, useOrbitStore, useSessionUser } from "@/lib/orbit/store";
 import { cn } from "@/lib/utils";
 
@@ -20,7 +20,7 @@ function ChatPage() {
   const closed = isHeld(store.chatClosedUntil, now);
   const muted = isHeld(store.mutedUntil[user.id], now);
   const flooded = (store.floodUntil[user.id] ?? 0) > now;
-  const messages = store.messages;
+  const messages = [...store.messages].sort((a, b) => +new Date(a.createdAt) - +new Date(b.createdAt));
 
   useEffect(() => {
     const t = window.setInterval(() => setNow(Date.now()), 1000);
@@ -29,7 +29,7 @@ function ChatPage() {
 
   useEffect(() => {
     bottom.current?.scrollIntoView({ block: "end" });
-  }, [messages.length]);
+  }, [messages.length, messages.at(-1)?.id]);
 
   const blocked = closed || muted || flooded;
   const reason = closed
@@ -51,7 +51,7 @@ function ChatPage() {
   }
 
   return (
-    <main className="flex min-h-dvh flex-col px-4 pb-[calc(env(safe-area-inset-bottom)+10rem)]">
+    <main className="flex min-h-dvh flex-col px-4 pb-[calc(env(safe-area-inset-bottom)+14rem)]">
       <h1 className="font-display text-2xl font-semibold">Chat</h1>
       <ResumeBanner />
       {closed ? (
@@ -83,79 +83,89 @@ function ChatPage() {
       {messages.length === 0 ? (
         <p className="mt-10 text-center text-sm text-muted">Aucun message. Dis bonjour.</p>
       ) : (
-        <ul className="mt-4 space-y-2">
-          {messages.map((m) => {
+        <ul className="mt-4 flex flex-col gap-1.5">
+          {messages.map((m, i) => {
             const author = store.users.find((u) => u.id === m.userId);
             const mine = m.userId === user.id;
+            const prev = messages[i - 1];
+            const day = !prev || daySeparatorLabel(prev.createdAt) !== daySeparatorLabel(m.createdAt);
             return (
-              <li
-                key={m.id}
-                className={cn(
-                  "rounded-2xl px-3 py-2",
-                  mine ? "ml-6 bg-accent/15" : "mr-6 bg-surface",
-                )}
-              >
-                <div className="flex items-baseline justify-between gap-2">
-                  <p className="truncate text-xs font-medium">
-                    {author ? (
-                      <button
-                        className="truncate"
-                        onClick={() => void navigate({ to: "/app/u/$userId", params: { userId: author.id } })}
-                      >
-                        @{author.pseudo}
-                      </button>
-                    ) : (
-                      <span>@parti</span>
+              <li key={m.id} className="flex flex-col">
+                {day ? (
+                  <p className="py-2 text-center text-[11px] text-subtle">{daySeparatorLabel(m.createdAt)}</p>
+                ) : null}
+                <div className={cn("flex", mine ? "justify-end" : "justify-start")}>
+                  <div
+                    className={cn(
+                      "max-w-[80%] px-3 py-2",
+                      mine
+                        ? "rounded-2xl rounded-br-md bg-accent/15"
+                        : "rounded-2xl rounded-bl-md bg-surface",
                     )}
-                    {author?.isAdmin ? <span className="ml-1 text-accent">admin</span> : null}
-                  </p>
-                  <span className="shrink-0 text-[10px] text-subtle num">{formatClock(m.createdAt)}</span>
-                </div>
-                <p className="mt-1 whitespace-pre-wrap break-words text-sm">{m.text}</p>
-                {user.isAdmin ? (
-                  <div className="mt-1 flex flex-wrap items-center gap-1">
-                    <button
-                      className="h-8 rounded-full px-2 text-[11px] text-danger"
-                      onClick={() => store.deleteMessage(m.id)}
-                    >
-                      Supprimer
-                    </button>
-                    {!author?.isAdmin && author ? (
-                      <>
+                  >
+                    <p className="truncate text-xs font-medium">
+                      {author ? (
                         <button
-                          className="h-8 rounded-full px-2 text-[11px] text-muted"
-                          onClick={() => store.muteUser(author.id, 15)}
+                          className="truncate"
+                          onClick={() => void navigate({ to: "/app/u/$userId", params: { userId: author.id } })}
                         >
-                          Mute 15 min
+                          @{author.pseudo}
                         </button>
+                      ) : (
+                        <span>@parti</span>
+                      )}
+                      {author?.isAdmin ? <span className="ml-1 text-accent">admin</span> : null}
+                    </p>
+                    <p className="mt-1 whitespace-pre-wrap text-sm [overflow-wrap:break-word] [word-break:normal]">
+                      {m.text}
+                    </p>
+                    <p className="mt-1 text-[10px] text-subtle num">{clockHm(m.createdAt)}</p>
+                    {user.isAdmin ? (
+                      <div className="mt-1 flex flex-wrap items-center gap-1">
                         <button
-                          className="h-8 rounded-full px-2 text-[11px] text-muted"
-                          onClick={() => store.muteUser(author.id, 60)}
+                          className="h-8 rounded-full px-2 text-[11px] text-danger"
+                          onClick={() => store.deleteMessage(m.id)}
                         >
-                          1 h
+                          Supprimer
                         </button>
-                        <button
-                          className="h-8 rounded-full px-2 text-[11px] text-muted"
-                          onClick={() => store.muteUser(author.id, 1440)}
-                        >
-                          24 h
-                        </button>
-                        <button
-                          className="h-8 rounded-full px-2 text-[11px] text-muted"
-                          onClick={() => store.muteUser(author.id, "manual")}
-                        >
-                          Jusqu’à unmute
-                        </button>
-                        <button
-                          className="h-8 rounded-full px-2 text-[11px] text-muted"
-                          onClick={() => store.unmuteUser(author.id)}
-                        >
-                          Unmute
-                        </button>
-                      </>
+                        {!author?.isAdmin && author ? (
+                          <>
+                            <button
+                              className="h-8 rounded-full px-2 text-[11px] text-muted"
+                              onClick={() => store.muteUser(author.id, 15)}
+                            >
+                              Mute 15 min
+                            </button>
+                            <button
+                              className="h-8 rounded-full px-2 text-[11px] text-muted"
+                              onClick={() => store.muteUser(author.id, 60)}
+                            >
+                              1 h
+                            </button>
+                            <button
+                              className="h-8 rounded-full px-2 text-[11px] text-muted"
+                              onClick={() => store.muteUser(author.id, 1440)}
+                            >
+                              24 h
+                            </button>
+                            <button
+                              className="h-8 rounded-full px-2 text-[11px] text-muted"
+                              onClick={() => store.muteUser(author.id, "manual")}
+                            >
+                              Jusqu’à unmute
+                            </button>
+                            <button
+                              className="h-8 rounded-full px-2 text-[11px] text-muted"
+                              onClick={() => store.unmuteUser(author.id)}
+                            >
+                              Unmute
+                            </button>
+                          </>
+                        ) : null}
+                      </div>
                     ) : null}
                   </div>
-                ) : null}
+                </div>
               </li>
             );
           })}
@@ -164,7 +174,7 @@ function ChatPage() {
       <div ref={bottom} />
 
       <form
-        className="fixed inset-x-0 z-20 mx-auto w-full max-w-lg bg-bg/95 px-4 pt-2 backdrop-blur-md"
+        className="fixed inset-x-0 z-40 mx-auto w-full max-w-lg border-t border-border bg-bg px-4 pt-2"
         style={{ bottom: "calc(3.5rem + env(safe-area-inset-bottom))" }}
         onSubmit={(e) => {
           e.preventDefault();

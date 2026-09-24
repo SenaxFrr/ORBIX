@@ -3,7 +3,7 @@ import { ChevronLeft } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { formatClock } from "@/lib/orbit/format";
+import { clockHm, daySeparatorLabel, formatClock } from "@/lib/orbit/format";
 import { conversationKey, useOrbitStore, useSessionUser } from "@/lib/orbit/store";
 import type { DirectMessage } from "@/lib/orbit/types";
 import { cn } from "@/lib/utils";
@@ -137,7 +137,7 @@ function Thread({ peerId }: { peerId: string }) {
 
   useEffect(() => {
     bottom.current?.scrollIntoView({ block: "end" });
-  }, [msgs.length]);
+  }, [msgs.length, msgs.at(-1)?.id]);
 
   function send() {
     const r = store.sendDm(peerId, text);
@@ -150,7 +150,7 @@ function Thread({ peerId }: { peerId: string }) {
   }
 
   return (
-    <main className="flex min-h-dvh flex-col px-4 pb-[calc(env(safe-area-inset-bottom)+10rem)] pt-[calc(env(safe-area-inset-top)+8px)]">
+    <main className="flex min-h-dvh flex-col px-4 pb-[calc(env(safe-area-inset-bottom)+14rem)] pt-[calc(env(safe-area-inset-top)+8px)]">
       <header className="flex items-center gap-2">
         <button
           className="flex size-11 items-center justify-center rounded-lg"
@@ -172,22 +172,29 @@ function Thread({ peerId }: { peerId: string }) {
       </header>
 
       <ul className="mt-4 flex flex-1 flex-col gap-1.5">
-        {msgs.map((m) => {
+        {msgs.map((m, i) => {
           const own = m.fromId === me.id;
+          const prev = msgs[i - 1];
+          const day = !prev || daySeparatorLabel(prev.createdAt) !== daySeparatorLabel(m.createdAt);
           return (
-            <li key={m.id} className={cn("flex", own ? "justify-end" : "justify-start")}>
-              <div
-                className={cn(
-                  "max-w-[78%] px-3 py-2 text-sm",
-                  own
-                    ? "rounded-2xl rounded-br-md bg-accent text-accent-fg"
-                    : "rounded-2xl rounded-bl-md bg-surface text-fg",
-                )}
-              >
-                <p className="whitespace-pre-wrap break-words">{m.text}</p>
-                <p className={cn("mt-1 text-[10px] num", own ? "text-accent-fg/70" : "text-subtle")}>
-                  {formatClock(m.createdAt)}
-                </p>
+            <li key={m.id} className="flex flex-col">
+              {day ? (
+                <p className="py-2 text-center text-[11px] text-subtle">{daySeparatorLabel(m.createdAt)}</p>
+              ) : null}
+              <div className={cn("flex", own ? "justify-end" : "justify-start")}>
+                <div
+                  className={cn(
+                    "max-w-[80%] px-3 py-2 text-sm",
+                    own
+                      ? "rounded-2xl rounded-br-md bg-accent text-accent-fg"
+                      : "rounded-2xl rounded-bl-md bg-surface text-fg",
+                  )}
+                >
+                  <p className="whitespace-pre-wrap [overflow-wrap:break-word] [word-break:normal]">{m.text}</p>
+                  <p className={cn("mt-1 text-[10px] num", own ? "text-accent-fg/70" : "text-subtle")}>
+                    {clockHm(m.createdAt)}
+                  </p>
+                </div>
               </div>
             </li>
           );
@@ -197,7 +204,7 @@ function Thread({ peerId }: { peerId: string }) {
 
       {peer && !mine ? (
         <form
-          className="fixed inset-x-0 z-20 mx-auto w-full max-w-lg bg-bg/95 px-4 pt-2 backdrop-blur-md"
+          className="fixed inset-x-0 z-40 mx-auto w-full max-w-lg border-t border-border bg-bg px-4 pt-2"
           style={{ bottom: "calc(3.5rem + env(safe-area-inset-bottom))" }}
           onSubmit={(e) => {
             e.preventDefault();

@@ -87,6 +87,8 @@ function Board() {
             division: o.division,
             label: o.label,
             classified: o.classified,
+            bestWeight: 0,
+            bestReps: 0,
           };
         }
         const l = liftRankFor(u, metric, store.sets, store.workouts, store.declaredPerfs, pool);
@@ -97,7 +99,9 @@ function Board() {
           rank: l.rank,
           division: l.division,
           label: l.label,
-          classified: l.classifiedLift && l.score > 0,
+          classified: l.classifiedLift && l.bestWeight > 0 && l.score > 0,
+          bestWeight: l.bestWeight,
+          bestReps: l.bestReps,
         };
       })
       .filter((r) => r.classified)
@@ -127,9 +131,11 @@ function Board() {
       {scope === "amis" && friends.length === 0 ? (
         <p className="mt-6 text-center text-sm text-muted">Aucun ami pour l’instant.</p>
       ) : rows.length === 0 ? (
-        <p className="mt-8 text-center text-sm text-muted">
-          Personne n’est classé pour l’instant. Définis 3 exos classés pour apparaître.
-        </p>
+        <div className="mt-6 rounded-2xl bg-surface px-4 py-6 text-center text-sm text-muted">
+          {metric === "global"
+            ? "Aucun rang pour l’instant. Ajoute 3 exos types."
+            : `Personne n’a encore de perf sur ${findExercise(metric, pool)?.name ?? "cet exo"}.`}
+        </div>
       ) : (
         <ul className="mt-3 space-y-1.5">
           {rows.map((r, i) => (
@@ -148,7 +154,9 @@ function Board() {
                     {r.id === me.id ? " · toi" : ""}
                   </p>
                 </div>
-                <span className="text-xs text-muted num">{formatFr(r.score, 1)}</span>
+                <span className="text-xs text-muted num">
+                  {metric === "global" ? formatFr(r.score, 1) : formatSet(r.bestWeight, r.bestReps)}
+                </span>
                 <RankBadge rank={r.rank} division={r.division} label={r.label} size="sm" />
               </button>
             </li>
@@ -160,7 +168,9 @@ function Board() {
         <div className="sticky bottom-20 mt-3 glass-strong flex items-center gap-3 rounded-xl px-3 py-3">
           <span className="w-6 text-right text-xs text-muted num">{myIndex + 1}</span>
           <p className="flex-1 text-sm font-medium">{me.pseudo} · toi</p>
-          <span className="text-xs text-muted num">{formatFr(rows[myIndex].score, 1)}</span>
+          <span className="text-xs text-muted num">
+            {metric === "global" ? formatFr(rows[myIndex].score, 1) : formatSet(rows[myIndex].bestWeight, rows[myIndex].bestReps)}
+          </span>
           <RankBadge
             rank={rows[myIndex].rank}
             division={rows[myIndex].division}

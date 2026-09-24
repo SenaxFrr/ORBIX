@@ -63,6 +63,22 @@ function writeWorld() {
   return set(ref(rtdb, WORLD_PATH), stripUndefined(world));
 }
 
+let onlineSaid = false;
+let offlineSaid = false;
+
+function sayOnline() {
+  offlineSaid = false;
+  if (onlineSaid) return;
+  onlineSaid = true;
+  toast.message("En ligne");
+}
+
+function sayOffline() {
+  if (offlineSaid) return;
+  offlineSaid = true;
+  toast.message("Hors ligne");
+}
+
 export function startOrbitFirebaseSync() {
   const worldRef = ref(rtdb, WORLD_PATH);
   let applyingRemote = false;
@@ -71,9 +87,10 @@ export function startOrbitFirebaseSync() {
 
   void set(ref(rtdb, "orbit/ping"), { ok: true, at: Date.now() })
     .then(() => writeWorld())
+    .then(() => sayOnline())
     .catch((err: { code?: string; message?: string }) => {
       console.error("[orbit] firebase write", err);
-      toast.error(err?.code || err?.message || "Écriture Firebase refusée");
+      sayOffline();
     });
 
   const unsubRemote = onValue(
@@ -103,10 +120,11 @@ export function startOrbitFirebaseSync() {
       }
       ready = true;
       applyingRemote = false;
+      sayOnline();
     },
     (err) => {
       console.error("[orbit] firebase listen", err);
-      toast.error("Lecture Firebase refusée");
+      sayOffline();
       ready = true;
     },
   );
@@ -115,7 +133,12 @@ export function startOrbitFirebaseSync() {
     if (!ready || applyingRemote) return;
     if (timer) clearTimeout(timer);
     timer = setTimeout(() => {
-      void writeWorld().catch((err) => console.error("[orbit] firebase write", err));
+      void writeWorld()
+        .then(() => sayOnline())
+        .catch((err) => {
+          console.error("[orbit] firebase write", err);
+          sayOffline();
+        });
     }, 350);
   });
 
