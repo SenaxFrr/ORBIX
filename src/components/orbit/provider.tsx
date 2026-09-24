@@ -2,7 +2,6 @@ import { useEffect } from "react";
 import { Toaster, toast } from "sonner";
 import { OrbitGlyph } from "./glyph";
 import { RankStage } from "./rank-stage";
-import { startOrbitFirebaseSync } from "@/lib/orbit/firebase-sync";
 import { useOrbitStore } from "@/lib/orbit/store";
 
 export function OrbitProvider({ children }: { children: React.ReactNode }) {
@@ -21,8 +20,23 @@ export function OrbitProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (!hydrated) return;
-    return startOrbitFirebaseSync();
+    if (!hydrated || typeof window === "undefined") return;
+    let stop: undefined | (() => void);
+    let alive = true;
+    void import("@/lib/orbit/firebase-sync")
+      .then((mod) => {
+        if (!alive) return;
+        stop = mod.startOrbitFirebaseSync();
+        toast.message("Sync cloud activée");
+      })
+      .catch((err) => {
+        console.error(err);
+        toast.error("Sync Firebase échouée");
+      });
+    return () => {
+      alive = false;
+      stop?.();
+    };
   }, [hydrated]);
 
   const notice = useOrbitStore((s) => s.notice);
