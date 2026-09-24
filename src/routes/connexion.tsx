@@ -31,7 +31,9 @@ function Connexion() {
   const navigate = useNavigate();
 
   function goApp() {
-    void navigate({ to: "/app/feed" });
+    const s = useOrbitStore.getState();
+    const u = s.users.find((x) => x.id === s.sessionUserId);
+    void navigate({ to: u?.isAdmin ? "/admin" : "/app/feed" });
   }
 
   function onLogin(e: React.FormEvent) {

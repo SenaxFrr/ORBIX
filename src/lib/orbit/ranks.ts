@@ -333,7 +333,7 @@ export function diffRankEvents(
     const a = after.lifts.find((l) => l.exerciseId === id);
     if (!a || !b) continue;
     if (rose(b, a)) {
-      events.push({ kind: "exo", name: a.name, from: b.label, to: a.label });
+      events.push({ kind: "exo", name: a.name, from: b.label, to: a.label, color: rankById(a.rank).color });
     }
   }
   if (rose(before.global, after.global)) {

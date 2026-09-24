@@ -119,8 +119,9 @@
   }
 
   .rank-toast {
-    background: color-mix(in oklab, var(--color-surface) 92%, var(--color-accent));
-    box-shadow: var(--shadow-border), var(--shadow-glow);
+    background: color-mix(in oklab, var(--rank, var(--color-surface)) 18%, #101218);
+    border: 1px solid color-mix(in oklab, var(--rank, var(--color-accent)) 50%, transparent);
+    box-shadow: none;
     animation: rank-toast-in 180ms cubic-bezier(0.22, 1, 0.36, 1);
   }
 
@@ -130,6 +131,46 @@
 
   .rank-global-to {
     animation: rank-in 520ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .console-shell {
+    --color-bg: #070806;
+    --color-surface: #0e120d;
+    --color-surface-2: #161b14;
+    --color-fg: #d7e4c8;
+    --color-muted: #8d9a7c;
+    --color-subtle: #667056;
+    --color-accent: #c6f54a;
+    --color-accent-fg: #12160a;
+    --color-border: #2c3824;
+    --color-danger: #ff5d4a;
+    --color-warn: #e6a23c;
+    --shadow-glow: none;
+    --shadow-border: none;
+    min-height: 100dvh;
+    background:
+      linear-gradient(180deg, rgb(198 245 74 / 0.05), transparent 140px),
+      repeating-linear-gradient(0deg, transparent, transparent 3px, rgb(198 245 74 / 0.025) 4px),
+      var(--color-bg);
+    color: var(--color-fg);
+    font-family: var(--font-mono);
+  }
+
+  .console-shell h1,
+  .console-shell h2,
+  .console-shell h3 {
+    font-family: var(--font-mono);
+    letter-spacing: 0;
+  }
+
+  .console-shell .glass,
+  .console-shell .glass-strong,
+  .console-shell .rounded-xl,
+  .console-shell .rounded-2xl,
+  .console-shell .rounded-lg,
+  .console-shell .rounded-full {
+    border-radius: 0;
+    box-shadow: none;
   }
 }
 
@@ -147,13 +188,11 @@
 @keyframes rank-in {
   from {
     opacity: 0;
-    transform: scale(0.86);
-    filter: blur(6px);
+    transform: scale(0.92);
   }
   to {
     opacity: 1;
     transform: scale(1);
-    filter: blur(0);
   }
 }
 

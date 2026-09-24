@@ -14,7 +14,7 @@ function Splash() {
   useEffect(() => {
     if (!hydrated) return;
     if (!session || !user) void navigate({ to: "/connexion" });
-    else void navigate({ to: "/app/feed" });
+    else void navigate({ to: user.isAdmin ? "/admin" : "/app/feed" });
   }, [hydrated, session, user, navigate]);
 
   return <SplashMark />;

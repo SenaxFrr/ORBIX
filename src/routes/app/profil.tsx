@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { ChevronLeft, Shield } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { useEffect, useState } from "react";
 import { RankBadge } from "@/components/orbit/rank-badge";
 import { RankGateBanner } from "@/components/orbit/starter-lifts";
@@ -113,12 +113,6 @@ function Apercu() {
       >
         Voir mon profil public
       </Button>
-      {user.isAdmin ? (
-        <Button className="mt-2 w-full" onClick={() => void navigate({ to: "/app/admin" })}>
-          <Shield className="size-4" />
-          Admin
-        </Button>
-      ) : null}
       <div className="mt-6">
         <Label>Bio</Label>
         <Textarea

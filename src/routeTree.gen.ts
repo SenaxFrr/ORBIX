@@ -11,6 +11,8 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/app'
+import { Route as AdminRouteImport } from './routes/admin'
+import { Route as AdminUUserIdRouteImport } from './routes/admin.u.$userId'
 import { Route as ConnexionRouteImport } from './routes/connexion'
 import { Route as AppIndexRouteImport } from './routes/app/index'
 import { Route as AppAdminRouteImport } from './routes/app/admin'
@@ -43,6 +45,16 @@ const ConnexionRoute = ConnexionRouteImport.update({
   id: '/connexion',
   path: '/connexion',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminUUserIdRoute = AdminUUserIdRouteImport.update({
+  id: '/u/$userId',
+  path: '/u/$userId',
+  getParentRoute: () => AdminRoute,
 } as any)
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
@@ -129,6 +141,8 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
   '/connexion': typeof ConnexionRoute
+  '/admin': typeof AdminRouteWithChildren
+  '/admin/u/$userId': typeof AdminUUserIdRoute
   '/app/admin': typeof AppAdminRouteWithChildren
   '/app/admin/u/$userId': typeof AppAdminUUserIdRoute
   '/app/chat': typeof AppChatRoute
@@ -149,6 +163,8 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/connexion': typeof ConnexionRoute
+  '/admin': typeof AdminRouteWithChildren
+  '/admin/u/$userId': typeof AdminUUserIdRoute
   '/app/admin': typeof AppAdminRouteWithChildren
   '/app/admin/u/$userId': typeof AppAdminUUserIdRoute
   '/app/chat': typeof AppChatRoute
@@ -171,6 +187,8 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
   '/connexion': typeof ConnexionRoute
+  '/admin': typeof AdminRouteWithChildren
+  '/admin/u/$userId': typeof AdminUUserIdRoute
   '/app/admin': typeof AppAdminRouteWithChildren
   '/app/admin/u/$userId': typeof AppAdminUUserIdRoute
   '/app/chat': typeof AppChatRoute
@@ -194,6 +212,8 @@ export interface FileRouteTypes {
     | '/'
     | '/app'
     | '/connexion'
+    | '/admin'
+    | '/admin/u/$userId'
     | '/app/admin'
     | '/app/admin/u/$userId'
     | '/app/chat'
@@ -214,6 +234,8 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/connexion'
+    | '/admin'
+    | '/admin/u/$userId'
     | '/app/admin'
     | '/app/admin/u/$userId'
     | '/app/chat'
@@ -235,6 +257,8 @@ export interface FileRouteTypes {
     | '/'
     | '/app'
     | '/connexion'
+    | '/admin'
+    | '/admin/u/$userId'
     | '/app/admin'
     | '/app/admin/u/$userId'
     | '/app/chat'
@@ -257,6 +281,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
   ConnexionRoute: typeof ConnexionRoute
+  AdminRoute: typeof AdminRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -281,6 +306,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/connexion'
       preLoaderRoute: typeof ConnexionRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/u/$userId': {
+      id: '/admin/u/$userId'
+      path: '/u/$userId'
+      fullPath: '/admin/u/$userId'
+      preLoaderRoute: typeof AdminUUserIdRouteImport
+      parentRoute: typeof AdminRoute
     }
     '/app/': {
       id: '/app/'
@@ -477,10 +516,21 @@ const AppRouteChildren: AppRouteChildren = {
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
+interface AdminRouteChildren {
+  AdminUUserIdRoute: typeof AdminUUserIdRoute
+}
+
+const AdminRouteChildren: AdminRouteChildren = {
+  AdminUUserIdRoute: AdminUUserIdRoute,
+}
+
+const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
   ConnexionRoute: ConnexionRoute,
+  AdminRoute: AdminRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -199,7 +199,7 @@ export interface LiftHistoryRow {
 }
 
 export type RankEvent =
-  | { kind: "exo"; name: string; from: string; to: string }
+  | { kind: "exo"; name: string; from: string; to: string; color: string }
   | {
       kind: "global";
       from: string;
