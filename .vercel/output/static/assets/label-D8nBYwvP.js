@@ -1,1 +1,0 @@
-import{a as e}from"./useNavigate-B5cTCzu1.js";import{a as t}from"./store-vwpTYsyN.js";var n=e();function r({className:e,...r}){return(0,n.jsx)(`label`,{className:t(`block text-xs font-medium uppercase tracking-[0.14em] text-muted`,e),...r})}export{r as t};

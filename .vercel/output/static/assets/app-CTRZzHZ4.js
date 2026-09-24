@@ -1,1 +1,0 @@
-import{a as e,t}from"./useNavigate-B5cTCzu1.js";var n=e(),r=()=>(0,n.jsx)(t,{to:`/app/feed`});export{r as component};
