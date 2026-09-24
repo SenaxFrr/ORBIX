@@ -17,6 +17,7 @@ export function makeAdmin(now = new Date()): User {
     bodyweight: 80,
     height: 180,
     createdAt: new Date(now.getTime() - 120 * 86400000).toISOString(),
+    lastSeenAt: 0,
     isAdmin: true,
   };
 }

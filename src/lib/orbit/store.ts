@@ -68,6 +68,7 @@ interface OrbitState extends OrbitData {
   notice: string | null;
   rankQueue: RankEvent[];
   markHydrated: () => void;
+  touchSeen: () => void;
   ensureSeed: () => void;
   register: (opts: {
     pseudo: string;
@@ -476,6 +477,21 @@ export const useOrbitStore = create<OrbitState>()(
       notice: null,
       rankQueue: [],
       markHydrated: () => set({ hydrated: true }),
+      touchSeen: () => {
+        const id = get().sessionUserId;
+        if (!id) return;
+        const user = get().users.find((u) => u.id === id);
+        if (!user) return;
+        const now = Date.now();
+        if (typeof user.lastSeenAt === "string") {
+          const t = Date.parse(user.lastSeenAt);
+          if (Number.isFinite(t) && now - t < 120_000) return;
+        }
+        const iso = new Date(now).toISOString();
+        set((s) => ({
+          users: s.users.map((u) => (u.id === id ? { ...u, lastSeenAt: iso } : u)),
+        }));
+      },
       ensureSeed: () => {
         const s = get();
         const world = buildBaseWorld();
@@ -484,6 +500,8 @@ export const useOrbitStore = create<OrbitState>()(
           .map((u) => {
             const next = { ...u } as User & { glow?: unknown };
             delete next.glow;
+            const seen = next.lastSeenAt;
+            next.lastSeenAt = typeof seen === "string" && Number.isFinite(Date.parse(seen)) ? seen : 0;
             if (!u.npcLifts && !u.firstName) return next;
             delete next.npcLifts;
             if (next.isAdmin) delete next.firstName;
@@ -565,6 +583,7 @@ export const useOrbitStore = create<OrbitState>()(
           themeAccent: "or",
           themeMode: "sombre",
           createdAt: new Date().toISOString(),
+          lastSeenAt: new Date().toISOString(),
         };
         const today = todayKey();
         const declared = perfRows(user.id, parsed.rows, today);
@@ -591,8 +610,12 @@ export const useOrbitStore = create<OrbitState>()(
         if (!user || user.passwordHash !== hashPassword(password)) {
           return { ok: false, error: "Pseudo ou mot de passe incorrect." };
         }
-        set({ sessionUserId: user.id });
-        return { ok: true, user };
+        const iso = new Date().toISOString();
+        set({
+          sessionUserId: user.id,
+          users: get().users.map((u) => (u.id === user.id ? { ...u, lastSeenAt: iso } : u)),
+        });
+        return { ok: true, user: { ...user, lastSeenAt: iso } };
       },
       logout: () => set({ sessionUserId: null }),
       updateProfile: (patch) => {

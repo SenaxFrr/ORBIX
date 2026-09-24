@@ -52,6 +52,7 @@ export interface User {
   themeMode?: ThemeMode;
   bio?: string;
   createdAt: string;
+  lastSeenAt: string | 0;
   isAdmin?: boolean;
   isNpc?: boolean;
   npcLifts?: Record<string, { weight: number; reps: number }>;

@@ -32,6 +32,11 @@ export function OrbitProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    if (!hydrated) return;
+    useOrbitStore.getState().touchSeen();
+  }, [hydrated]);
+
+  useEffect(() => {
     if (!hydrated || typeof window === "undefined") return;
     let stop: undefined | (() => void);
     let alive = true;

@@ -153,6 +153,28 @@ export function daySeparatorLabel(iso: string): string {
   return formatDateFull(key);
 }
 
+export function formatLastSeen(value: string | 0 | null | undefined, now = Date.now()): string {
+  if (value == null || value === 0) return "Jamais";
+  const t = Date.parse(value);
+  if (!Number.isFinite(t)) return "Jamais";
+  const delta = Math.max(0, now - t);
+  if (delta < 3 * 60 * 1000) return "En ligne";
+  if (delta < 60 * 60 * 1000) {
+    const m = Math.max(1, Math.floor(delta / 60000));
+    return `Il y a ${m} min`;
+  }
+  const p = parisParts(new Date(t));
+  const key = `${p.year}-${String(p.month).padStart(2, "0")}-${String(p.day).padStart(2, "0")}`;
+  const today = parisDateKey(new Date(now));
+  const hm = `${String(p.hour).padStart(2, "0")}:${String(p.minute).padStart(2, "0")}`;
+  if (key === today) {
+    const h = Math.floor(delta / 3600000);
+    return h <= 1 ? "Il y a 1 h" : `Il y a ${h} h`;
+  }
+  if (key === addDaysKey(today, -1)) return `Hier ${hm}`;
+  return `${formatDateFull(key)} ${hm}`;
+}
+
 export function formatClock(iso: string): string {
   const p = parisParts(new Date(iso));
   const hm = `${String(p.hour).padStart(2, "0")}:${String(p.minute).padStart(2, "0")}`;

@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { CATALOG_GROUPS, findExercise, GROUP_LABEL, poolFrom } from "@/lib/orbit/exercises";
-import { formatDateLong, formatClock, formatHold, formatRest, formatSeries, formatWeight } from "@/lib/orbit/format";
+import { formatDateLong, formatClock, formatHold, formatLastSeen, formatRest, formatSeries, formatWeight } from "@/lib/orbit/format";
 import { TAG_LABEL } from "@/lib/orbit/labels";
 import { computeGlobalOrbit } from "@/lib/orbit/ranks";
 import type { Exercise, MuscleGroup, Post, PostTag, Program } from "@/lib/orbit/types";
@@ -739,6 +739,11 @@ function AdminMembers() {
   const pool = usePool();
   const navigate = useNavigate();
   const [q, setQ] = useState("");
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const t = window.setInterval(() => setNow(Date.now()), 20000);
+    return () => window.clearInterval(t);
+  }, []);
   const all = store.users.filter((u) => !u.isNpc);
   const needle = q.trim().toLowerCase();
   const members = all
@@ -762,13 +767,16 @@ function AdminMembers() {
             return (
               <li key={u.id} className="border-b border-border last:border-b-0">
                 <button
-                  className="flex w-full items-baseline justify-between gap-2 px-2 py-1.5 text-left text-xs"
+                  className="flex w-full items-center justify-between gap-2 px-2 py-1.5 text-left text-xs"
                   onClick={() => void navigate({ to: "/admin/u/$userId", params: { userId: u.id } })}
                 >
-                  <span className="min-w-0 truncate">
-                    @{u.pseudo}
-                    {u.isAdmin ? <span className="ml-2 text-[10px] uppercase text-accent">admin</span> : null}
-                    {muted ? <span className="ml-2 text-[10px] uppercase text-warn">muet</span> : null}
+                  <span className="min-w-0">
+                    <span className="block truncate">
+                      @{u.pseudo}
+                      {u.isAdmin ? <span className="ml-2 text-[10px] uppercase text-accent">admin</span> : null}
+                      {muted ? <span className="ml-2 text-[10px] uppercase text-warn">muet</span> : null}
+                    </span>
+                    <span className="block text-[10px] text-muted">{formatLastSeen(u.lastSeenAt, now)}</span>
                   </span>
                   <span className="shrink-0 text-[10px] text-muted">{orbit.classified ? orbit.label : "—"}</span>
                 </button>

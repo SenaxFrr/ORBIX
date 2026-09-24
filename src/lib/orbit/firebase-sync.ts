@@ -44,6 +44,8 @@ function cleanUsers(v: unknown): User[] | null {
     delete u.glow;
     if (typeof u.bio !== "string") delete u.bio;
     else u.bio = u.bio.slice(0, 160);
+    const seen = (u as User).lastSeenAt;
+    u.lastSeenAt = typeof seen === "string" && Number.isFinite(Date.parse(seen)) ? seen : 0;
     return u;
   });
 }
@@ -128,12 +130,14 @@ export function startOrbitFirebaseSync() {
       }
       ready = true;
       applyingRemote = false;
+      useOrbitStore.getState().touchSeen();
       sayOnline();
     },
     (err) => {
       console.error("[orbit] firebase listen", err);
       sayOffline();
       ready = true;
+      useOrbitStore.getState().touchSeen();
     },
   );
 

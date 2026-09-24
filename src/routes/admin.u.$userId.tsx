@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { classifiedExercises, findExercise } from "@/lib/orbit/exercises";
-import { formatClock, formatDate, formatSet, muteStatusLabel } from "@/lib/orbit/format";
+import { formatClock, formatDate, formatLastSeen, formatSet, muteStatusLabel } from "@/lib/orbit/format";
 import { GOAL_LABEL, LEVEL_LABEL, SEX_LABEL } from "@/lib/orbit/labels";
 import { computeGlobalOrbit } from "@/lib/orbit/ranks";
 import { ADMIN_ID } from "@/lib/orbit/seed";
@@ -119,6 +119,7 @@ function AdminUserPage() {
         </button>
         <h1 className="min-w-0 truncate font-display text-2xl font-semibold">@{user.pseudo}</h1>
       </header>
+      <p className="mt-3 font-mono text-lg">{formatLastSeen(user.lastSeenAt, now)}</p>
 
       <div className="mt-4 flex items-center justify-between gap-2">
         <div>
