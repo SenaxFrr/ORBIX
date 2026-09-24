@@ -24,6 +24,7 @@ import type {
   SetLog,
   Sex,
   StarterPerf,
+  SupportMessage,
   User,
   WeightLog,
   Workout,
@@ -48,6 +49,7 @@ interface OrbitData {
   catalog: Exercise[];
   messages: ChatMessage[];
   dms: DirectMessage[];
+  supportMessages: SupportMessage[];
   mutedUntil: Record<string, HoldUntil>;
   chatClosedUntil: HoldUntil;
   lastSentAt: Record<string, number>;
@@ -130,6 +132,22 @@ interface OrbitState extends OrbitData {
   markDmRead: (peerId: string) => void;
   deleteDm: (id: string) => void;
   deleteDmThread: (a: string, b: string) => void;
+  sendSupport: (text: string) => { ok: true } | { ok: false; error: string };
+  replySupport: (userId: string, text: string) => { ok: true } | { ok: false; error: string };
+  markSupportRead: (peerId?: string) => void;
+  deleteSupport: (id: string) => void;
+  adminUpdateUser: (
+    userId: string,
+    patch: ProfilePatch,
+  ) => { ok: true } | { ok: false; error: string };
+  adminUpsertDeclared: (opts: {
+    userId: string;
+    exerciseId: string;
+    weight: number;
+    reps: number;
+    date: string;
+  }) => { ok: true } | { ok: false; error: string };
+  adminDeleteDeclared: (id: string) => { ok: true } | { ok: false; error: string };
   muteUser: (userId: string, minutes: 15 | 60 | 1440 | "manual") => void;
   unmuteUser: (userId: string) => void;
   closeChat: (minutes: 15 | 60 | "manual") => void;
@@ -158,6 +176,7 @@ const empty: OrbitData = {
   catalog: [],
   messages: [],
   dms: [],
+  supportMessages: [],
   mutedUntil: {},
   chatClosedUntil: 0,
   lastSentAt: {},
@@ -193,6 +212,15 @@ export function normalizeDms(v: unknown): DirectMessage[] {
     out.push({ id, fromId, toId, text, createdAt, readAt });
   }
   return out;
+}
+
+export function normalizeSupport(v: unknown): SupportMessage[] {
+  return normalizeDms(v);
+}
+
+export function isStaffAccount(u: { isAdmin?: boolean; pseudo?: string } | null | undefined): boolean {
+  if (!u) return false;
+  return !!u.isAdmin || (u.pseudo ?? "").toLowerCase() === "admin";
 }
 
 export function normalizeClosed(v: unknown): HoldUntil {
@@ -390,6 +418,7 @@ function purgeUserFrom(s: OrbitData, userId: string): Partial<OrbitData> {
     weightLogs: s.weightLogs.filter((l) => l.userId !== userId),
     messages: s.messages.filter((m) => m.userId !== userId),
     dms: normalizeDms(s.dms).filter((m) => m.fromId !== userId && m.toId !== userId),
+    supportMessages: normalizeSupport(s.supportMessages).filter((m) => m.fromId !== userId && m.toId !== userId),
     mutedUntil,
     lastSentAt,
     lastText,
@@ -470,6 +499,7 @@ export const useOrbitStore = create<OrbitState>()(
           catalog: migrateCatalog(s.catalog),
           messages: (s.messages ?? []).filter((m) => keep.has(m.userId)),
           dms: normalizeDms(s.dms).filter((m) => keep.has(m.fromId) && keep.has(m.toId)),
+          supportMessages: normalizeSupport(s.supportMessages).filter((m) => keep.has(m.fromId) && keep.has(m.toId)),
           mutedUntil: normalizeMuted(s.mutedUntil),
           chatClosedUntil: normalizeClosed(s.chatClosedUntil),
           lastSentAt: s.lastSentAt ?? {},
@@ -580,6 +610,9 @@ export const useOrbitStore = create<OrbitState>()(
         const other = get().users.find((u) => u.id === userId && !u.isNpc);
         if (!other) return { ok: false, error: "Ce compte n’existe plus." };
         if (other.id === me.id) return { ok: false, error: "C’est toi." };
+        if (isStaffAccount(me) || isStaffAccount(other)) {
+          return { ok: false, error: "Les comptes admin ne peuvent pas être ajoutés en ami." };
+        }
         const s = get();
         const friends = s.friendsByUser[me.id] ?? [];
         if (friends.includes(other.id)) return { ok: false, error: "Déjà amis." };
@@ -624,6 +657,9 @@ export const useOrbitStore = create<OrbitState>()(
         }
         const from = get().users.find((u) => u.id === req.fromId && !u.isNpc);
         if (!from) return { ok: false, error: "Ce compte n’existe plus." };
+        if (isStaffAccount(me) || isStaffAccount(from)) {
+          return { ok: false, error: "Les comptes admin ne peuvent pas être ajoutés en ami." };
+        }
         set((s) => ({
           friendsByUser: linkFriends(s.friendsByUser, me.id, from.id),
           friendRequests: normalizeRequests(s.friendRequests).map((r) =>
@@ -1133,6 +1169,132 @@ export const useOrbitStore = create<OrbitState>()(
           dms: normalizeDms(s.dms).filter((m) => conversationKey(m.fromId, m.toId) !== key),
         }));
       },
+      sendSupport: (text) => {
+        const s = get();
+        const user = sessionUser(s);
+        if (!user) return { ok: false, error: "Pas de session." };
+        if (isStaffAccount(user)) return { ok: false, error: "Réponds depuis Admin." };
+        const t = text.replace(/\s+/g, " ").trim();
+        if (!t) return { ok: false, error: "Message vide." };
+        if (t.length > 200) return { ok: false, error: "200 caractères max." };
+        const admin =
+          s.users.find((u) => u.id === ADMIN_ID) ??
+          s.users.find((u) => u.isAdmin && u.pseudo.toLowerCase() === "admin");
+        if (!admin) return { ok: false, error: "Aucun admin." };
+        const msg: SupportMessage = {
+          id: uid(),
+          fromId: user.id,
+          toId: admin.id,
+          text: t.slice(0, 200),
+          createdAt: new Date().toISOString(),
+          readAt: 0,
+        };
+        set({ supportMessages: [...normalizeSupport(s.supportMessages), msg] });
+        return { ok: true };
+      },
+      replySupport: (userId, text) => {
+        const s = get();
+        const me = sessionUser(s);
+        if (!me?.isAdmin) return { ok: false, error: "Admin seulement." };
+        const other = s.users.find((u) => u.id === userId && !u.isNpc);
+        if (!other || other.id === me.id) return { ok: false, error: "Ce compte n’existe plus." };
+        const t = text.replace(/\s+/g, " ").trim();
+        if (!t) return { ok: false, error: "Message vide." };
+        if (t.length > 200) return { ok: false, error: "200 caractères max." };
+        const msg: SupportMessage = {
+          id: uid(),
+          fromId: me.id,
+          toId: other.id,
+          text: t.slice(0, 200),
+          createdAt: new Date().toISOString(),
+          readAt: 0,
+        };
+        set({ supportMessages: [...normalizeSupport(s.supportMessages), msg] });
+        return { ok: true };
+      },
+      markSupportRead: (peerId) => {
+        const me = sessionUser(get());
+        if (!me) return;
+        const now = Date.now();
+        const list = normalizeSupport(get().supportMessages);
+        let changed = false;
+        const next = list.map((m) => {
+          if (m.readAt > 0) return m;
+          const hit = me.isAdmin
+            ? !!peerId && m.fromId === peerId && (m.toId === me.id || m.toId === ADMIN_ID)
+            : m.toId === me.id;
+          if (!hit) return m;
+          changed = true;
+          return { ...m, readAt: now };
+        });
+        if (changed) set({ supportMessages: next });
+      },
+      deleteSupport: (id) => {
+        const me = sessionUser(get());
+        if (!me?.isAdmin) return;
+        set((s) => ({ supportMessages: normalizeSupport(s.supportMessages).filter((m) => m.id !== id) }));
+      },
+      adminUpdateUser: (userId, patch) => {
+        const me = sessionUser(get());
+        if (!me?.isAdmin) return { ok: false, error: "Admin seulement." };
+        if (!get().users.some((u) => u.id === userId && !u.isNpc)) {
+          return { ok: false, error: "Ce compte n’existe plus." };
+        }
+        const clean: ProfilePatch = { ...patch };
+        if (clean.theme != null && !isThemeId(clean.theme)) delete clean.theme;
+        if (typeof clean.bio === "string") clean.bio = clean.bio.trim().slice(0, 160);
+        if (typeof clean.age === "number" && (clean.age < 13 || clean.age > 80)) {
+          return { ok: false, error: "Âge invalide." };
+        }
+        if (typeof clean.height === "number" && clean.height < 120) return { ok: false, error: "Taille invalide." };
+        if (typeof clean.bodyweight === "number" && (clean.bodyweight < 30 || clean.bodyweight > 250)) {
+          return { ok: false, error: "Poids invalide." };
+        }
+        const today = todayKey();
+        set((s) => {
+          let extra: Partial<OrbitData> = {};
+          if (typeof clean.bodyweight === "number") {
+            extra = applyBodyweight(s, userId, Math.round(clean.bodyweight * 10) / 10, today);
+          }
+          const users = (extra.users ?? s.users).map((u) => (u.id === userId ? { ...u, ...clean } : u));
+          return { ...extra, users, notice: "Profil mis à jour" };
+        });
+        return { ok: true };
+      },
+      adminUpsertDeclared: ({ userId, exerciseId, weight, reps, date }) => {
+        const me = sessionUser(get());
+        if (!me?.isAdmin) return { ok: false, error: "Admin seulement." };
+        if (!get().users.some((u) => u.id === userId && !u.isNpc)) {
+          return { ok: false, error: "Ce compte n’existe plus." };
+        }
+        const pool = poolFrom(get());
+        if (!isClassifiedLift(exerciseId, pool)) return { ok: false, error: "Cet exo n’est pas classé." };
+        if (!(weight > 0) || reps < 1 || reps > 30) return { ok: false, error: "Charge > 0 kg, reps 1–30." };
+        const day = (date || todayKey()).slice(0, 10);
+        const row: DeclaredPerf = {
+          id: uid(),
+          userId,
+          exerciseId,
+          weight: Math.round(weight * 10) / 10,
+          reps: Math.round(reps),
+          date: day,
+          updatedAt: new Date().toISOString(),
+        };
+        set((s) => {
+          const next = s.declaredPerfs.filter(
+            (d) => !(d.userId === userId && d.exerciseId === exerciseId && d.date === day),
+          );
+          next.push(row);
+          return { declaredPerfs: next, notice: "Perf mise à jour" };
+        });
+        return { ok: true };
+      },
+      adminDeleteDeclared: (id) => {
+        const me = sessionUser(get());
+        if (!me?.isAdmin) return { ok: false, error: "Admin seulement." };
+        set((s) => ({ declaredPerfs: s.declaredPerfs.filter((d) => d.id !== id), notice: "Perf supprimée" }));
+        return { ok: true };
+      },
       deleteMessage: (id) => {
         const user = sessionUser(get());
         if (!user?.isAdmin) return;
@@ -1213,6 +1375,7 @@ export const useOrbitStore = create<OrbitState>()(
         catalog: s.catalog,
         messages: s.messages,
         dms: s.dms,
+        supportMessages: s.supportMessages,
         mutedUntil: s.mutedUntil,
         chatClosedUntil: s.chatClosedUntil,
         lastSentAt: s.lastSentAt,

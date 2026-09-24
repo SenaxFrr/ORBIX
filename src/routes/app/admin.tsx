@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import { ChevronDown, ChevronLeft, ChevronUp, Pencil, Plus, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { ExercisePicker } from "@/components/orbit/exercise-picker";
@@ -9,12 +9,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { CATALOG_GROUPS, findExercise, GROUP_LABEL, poolFrom } from "@/lib/orbit/exercises";
-import { formatDateLong, formatClock, formatRest, formatSeries, formatWeight, muteStatusLabel } from "@/lib/orbit/format";
+import { formatDateLong, formatClock, formatRest, formatSeries, formatWeight } from "@/lib/orbit/format";
 import { TAG_LABEL } from "@/lib/orbit/labels";
 import { computeGlobalOrbit } from "@/lib/orbit/ranks";
-import { ADMIN_ID } from "@/lib/orbit/seed";
 import type { Exercise, MuscleGroup, Post, PostTag, Program } from "@/lib/orbit/types";
-import { conversationKey, useOrbitStore, usePool, useSessionUser } from "@/lib/orbit/store";
+import { isStaffAccount, useOrbitStore, usePool, useSessionUser } from "@/lib/orbit/store";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/app/admin")({ component: AdminPage });
@@ -24,13 +23,15 @@ const TAGS: (PostTag | null)[] = [null, "Annonce", "Programme", "Conseils", "Eve
 function AdminPage() {
   const user = useSessionUser()!;
   const navigate = useNavigate();
-  const [tab, setTab] = useState<"feed" | "programmes" | "exercices" | "membres" | "dm">("feed");
+  const pathname = useLocation({ select: (l) => l.pathname });
+  const [tab, setTab] = useState<"feed" | "programmes" | "exercices" | "membres">("feed");
 
   useEffect(() => {
     if (!user.isAdmin) void navigate({ to: "/app/profil" });
   }, [user.isAdmin, navigate]);
 
   if (!user.isAdmin) return null;
+  if (pathname !== "/app/admin") return <Outlet />;
 
   return (
     <main className="px-4 pb-36 pt-[calc(env(safe-area-inset-top)+8px)]">
@@ -69,12 +70,6 @@ function AdminPage() {
         >
           Membres
         </button>
-        <button
-          className={cn("h-10 shrink-0 rounded-lg px-3 text-xs", tab === "dm" ? "bg-accent text-accent-fg" : "text-muted")}
-          onClick={() => setTab("dm")}
-        >
-          DM
-        </button>
       </div>
       {tab === "feed" ? (
         <AdminFeed />
@@ -82,8 +77,6 @@ function AdminPage() {
         <AdminPrograms />
       ) : tab === "exercices" ? (
         <AdminExercises />
-      ) : tab === "dm" ? (
-        <AdminDms />
       ) : (
         <AdminMembers />
       )}
@@ -595,27 +588,20 @@ function ExoSheet({
 
 function AdminMembers() {
   const store = useOrbitStore();
-  const me = useSessionUser()!;
   const pool = usePool();
   const navigate = useNavigate();
   const [q, setQ] = useState("");
-  const [now, setNow] = useState(Date.now());
-  const [del, setDel] = useState<{ id: string; pseudo: string } | null>(null);
-  useEffect(() => {
-    const t = window.setInterval(() => setNow(Date.now()), 5000);
-    return () => window.clearInterval(t);
-  }, []);
   const all = store.users.filter((u) => !u.isNpc);
   const needle = q.trim().toLowerCase();
   const members = all
     .filter((u) => !needle || u.pseudo.toLowerCase().includes(needle))
     .sort((a, b) => a.pseudo.localeCompare(b.pseudo, "fr"));
 
-  if (all.length === 0) return <p className="text-sm text-muted">Aucun membre.</p>;
-
   return (
     <div>
+      <SupportInbox />
       <Input
+        className="mt-4"
         placeholder="Rechercher un pseudo"
         value={q}
         onChange={(e) => setQ(e.target.value)}
@@ -626,156 +612,110 @@ function AdminMembers() {
         <ul className="mt-3 space-y-2">
           {members.map((u) => {
             const orbit = computeGlobalOrbit(u, store.sets, store.workouts, store.declaredPerfs, pool);
-            const self = u.id === me.id;
-            const principal = u.pseudo.toLowerCase() === "admin" || u.id === ADMIN_ID;
             return (
-              <li key={u.id} className="glass rounded-2xl px-3 py-3">
+              <li key={u.id}>
                 <button
-                  className="flex w-full items-center justify-between gap-2 text-left"
-                  onClick={() => void navigate({ to: "/app/u/$userId", params: { userId: u.id } })}
+                  className="glass flex w-full items-center justify-between gap-2 rounded-2xl px-3 py-3 text-left"
+                  onClick={() => void navigate({ to: "/app/admin/u/$userId", params: { userId: u.id } })}
                 >
-                  <span className="min-w-0">
-                    <span className="flex items-center gap-2">
-                      <span className="truncate font-medium">@{u.pseudo}</span>
-                      {u.isAdmin ? (
-                        <span className="rounded-full bg-accent/15 px-2 py-0.5 text-[11px] text-accent">Admin</span>
-                      ) : null}
-                    </span>
-                    <span className="mt-1 block text-xs text-muted">{muteStatusLabel(store.mutedUntil[u.id], now)}</span>
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className="truncate font-medium">@{u.pseudo}</span>
+                    {u.isAdmin ? (
+                      <span className="rounded-full bg-accent/15 px-2 py-0.5 text-[11px] text-accent">Admin</span>
+                    ) : null}
                   </span>
                   <RankBadge rank={orbit.rank} division={orbit.division} label={orbit.label} size="sm" />
                 </button>
-                {self ? null : (
-                  <div className="mt-2 flex flex-wrap gap-1">
-                    {u.id === ADMIN_ID ? null : (
-                      <>
-                        <Button size="sm" variant="secondary" onClick={() => store.muteUser(u.id, 15)}>
-                          Mute 15 min
-                        </Button>
-                        <Button size="sm" variant="secondary" onClick={() => store.muteUser(u.id, 60)}>
-                          1 h
-                        </Button>
-                        <Button size="sm" variant="secondary" onClick={() => store.muteUser(u.id, 1440)}>
-                          24 h
-                        </Button>
-                        <Button size="sm" variant="secondary" onClick={() => store.muteUser(u.id, "manual")}>
-                          jusqu’à unmute
-                        </Button>
-                        <Button size="sm" variant="ghost" onClick={() => store.unmuteUser(u.id)}>
-                          Unmute
-                        </Button>
-                      </>
-                    )}
-                    {principal ? null : (
-                      <Button size="sm" variant="danger" onClick={() => setDel({ id: u.id, pseudo: u.pseudo })}>
-                        Supprimer
-                      </Button>
-                    )}
-                  </div>
-                )}
               </li>
             );
           })}
         </ul>
       )}
-      {del ? (
-        <Confirm
-          title={`Supprimer @${del.pseudo} ?`}
-          ok="Supprimer"
-          onCancel={() => setDel(null)}
-          onOk={() => {
-            store.deleteAccount(del.id);
-            setDel(null);
-          }}
-        />
-      ) : null}
     </div>
   );
 }
 
-function AdminDms() {
+function SupportInbox() {
   const store = useOrbitStore();
-  const [q, setQ] = useState("");
+  const me = useSessionUser()!;
   const [open, setOpen] = useState<string | null>(null);
-  const [delMsg, setDelMsg] = useState<string | null>(null);
-  const [delThread, setDelThread] = useState<{ a: string; b: string } | null>(null);
-  const needle = q.trim().toLowerCase();
-  const name = (id: string) => store.users.find((u) => u.id === id)?.pseudo ?? "parti";
-
+  const [text, setText] = useState("");
+  const [err, setErr] = useState("");
+  const [del, setDel] = useState<string | null>(null);
   const threads = useMemo(() => {
-    const map = new Map<string, { a: string; b: string; msgs: typeof store.dms }>();
-    for (const m of store.dms ?? []) {
-      const key = conversationKey(m.fromId, m.toId);
-      const a = m.fromId < m.toId ? m.fromId : m.toId;
-      const b = m.fromId < m.toId ? m.toId : m.fromId;
-      const cur = map.get(key) ?? { a, b, msgs: [] };
-      cur.msgs.push(m);
-      map.set(key, cur);
+    const map = new Map<string, { unread: number; last: string; at: string }>();
+    for (const m of store.supportMessages ?? []) {
+      const from = store.users.find((u) => u.id === m.fromId);
+      const to = store.users.find((u) => u.id === m.toId);
+      const owner = from && !isStaffAccount(from) ? from.id : to && !isStaffAccount(to) ? to.id : null;
+      if (!owner) continue;
+      const cur = map.get(owner);
+      const unread = m.toId === me.id || (isStaffAccount({ isAdmin: true, pseudo: "admin" }) && !(m.readAt > 0) && m.fromId === owner) ? (m.readAt > 0 ? 0 : 1) : 0;
+      if (!cur || m.createdAt > cur.at) map.set(owner, { unread: (cur?.unread ?? 0) + unread, last: m.text, at: m.createdAt });
+      else map.set(owner, { ...cur, unread: cur.unread + unread });
     }
-    return [...map.values()]
-      .map((t) => ({
-        ...t,
-        key: conversationKey(t.a, t.b),
-        msgs: [...t.msgs].sort((a, b) => +new Date(a.createdAt) - +new Date(b.createdAt)),
-      }))
-      .filter((t) => {
-        if (!needle) return true;
-        return name(t.a).toLowerCase().includes(needle) || name(t.b).toLowerCase().includes(needle);
-      })
-      .sort((a, b) => +new Date(b.msgs[b.msgs.length - 1].createdAt) - +new Date(a.msgs[a.msgs.length - 1].createdAt));
-  }, [store.dms, store.users, needle]);
+    return [...map.entries()].sort((a, b) => b[1].at.localeCompare(a[1].at));
+  }, [store.supportMessages, store.users, me.id]);
+  const n = threads.reduce((a, [, t]) => a + t.unread, 0) || threads.length;
+  const msgs = open
+    ? (store.supportMessages ?? [])
+        .filter((m) => m.fromId === open || m.toId === open)
+        .sort((a, b) => +new Date(a.createdAt) - +new Date(b.createdAt))
+    : [];
+  const unreadOpen = msgs.filter((m) => m.fromId === open && !(m.readAt > 0)).length;
 
-  const current = threads.find((t) => t.key === open) ?? null;
+  useEffect(() => {
+    if (open && unreadOpen) store.markSupportRead(open);
+  }, [open, unreadOpen, store]);
 
-  if (current) {
+  const pseudo = (id: string) => store.users.find((u) => u.id === id)?.pseudo ?? "parti";
+
+  if (open) {
     return (
-      <div>
-        <button className="mb-3 text-sm text-muted" onClick={() => setOpen(null)}>
+      <div className="rounded-2xl bg-surface px-3 py-3">
+        <button className="text-sm text-muted" onClick={() => setOpen(null)}>
           Retour
         </button>
-        <div className="flex items-center justify-between gap-2">
-          <p className="min-w-0 truncate text-sm font-medium">
-            @{name(current.a)} · @{name(current.b)}
-          </p>
-          <Button size="sm" variant="danger" onClick={() => setDelThread({ a: current.a, b: current.b })}>
-            Supprimer
-          </Button>
-        </div>
-        <ul className="mt-3 space-y-2">
-          {current.msgs.map((m) => (
-            <li key={m.id} className="glass rounded-2xl px-3 py-3">
-              <div className="flex items-baseline justify-between gap-2">
-                <p className="truncate text-xs font-medium">
-                  @{name(m.fromId)} → @{name(m.toId)}
-                </p>
-                <span className="shrink-0 text-[10px] text-subtle num">{formatClock(m.createdAt)}</span>
-              </div>
-              <p className="mt-1 whitespace-pre-wrap break-words text-sm">{m.text}</p>
-              <button className="mt-1 h-8 text-[11px] text-danger" onClick={() => setDelMsg(m.id)}>
+        <p className="mt-2 text-sm font-medium">@{pseudo(open)}</p>
+        <ul className="mt-2 space-y-2">
+          {msgs.map((m) => (
+            <li key={m.id}>
+              <p className="text-xs text-muted">
+                @{pseudo(m.fromId)} · {formatClock(m.createdAt)}
+              </p>
+              <p className="text-sm">{m.text}</p>
+              <button className="text-[11px] text-danger" onClick={() => setDel(m.id)}>
                 Supprimer
               </button>
             </li>
           ))}
         </ul>
-        {delMsg ? (
+        <form
+          className="mt-3 flex gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const r = store.replySupport(open, text);
+            if (!r.ok) {
+              setErr(r.error);
+              return;
+            }
+            setText("");
+            setErr("");
+          }}
+        >
+          <Input value={text} maxLength={200} placeholder="Répondre" onChange={(e) => setText(e.target.value.slice(0, 200))} />
+          <Button type="submit" disabled={!text.trim()}>
+            Envoyer
+          </Button>
+        </form>
+        {err ? <p className="mt-1 text-xs text-danger">{err}</p> : null}
+        {del ? (
           <Confirm
             title="Supprimer ce message ?"
-            onCancel={() => setDelMsg(null)}
+            onCancel={() => setDel(null)}
             onOk={() => {
-              store.deleteDm(delMsg);
-              setDelMsg(null);
-              if (current.msgs.length <= 1) setOpen(null);
-            }}
-          />
-        ) : null}
-        {delThread ? (
-          <Confirm
-            title="Supprimer cette conversation ?"
-            onCancel={() => setDelThread(null)}
-            onOk={() => {
-              store.deleteDmThread(delThread.a, delThread.b);
-              setDelThread(null);
-              setOpen(null);
+              store.deleteSupport(del);
+              setDel(null);
             }}
           />
         ) : null}
@@ -785,27 +725,19 @@ function AdminDms() {
 
   return (
     <div>
-      <Input placeholder="Rechercher un pseudo" value={q} onChange={(e) => setQ(e.target.value)} />
+      <h2 className="text-sm font-medium">Messages support ({n})</h2>
       {threads.length === 0 ? (
-        <p className="mt-4 text-sm text-muted">Aucun DM.</p>
+        <p className="mt-2 text-sm text-muted">Aucun message.</p>
       ) : (
-        <ul className="mt-3 space-y-2">
-          {threads.map((t) => {
-            const last = t.msgs[t.msgs.length - 1];
-            return (
-              <li key={t.key}>
-                <button className="glass w-full rounded-2xl px-3 py-3 text-left" onClick={() => setOpen(t.key)}>
-                  <span className="flex items-baseline justify-between gap-2">
-                    <span className="truncate text-sm font-medium">
-                      @{name(t.a)} · @{name(t.b)}
-                    </span>
-                    <span className="shrink-0 text-[10px] text-subtle num">{formatClock(last.createdAt)}</span>
-                  </span>
-                  <span className="mt-1 block truncate text-xs text-muted">{last.text}</span>
-                </button>
-              </li>
-            );
-          })}
+        <ul className="mt-2 space-y-1">
+          {threads.map(([id, t]) => (
+            <li key={id}>
+              <button className="w-full rounded-xl bg-surface px-3 py-2 text-left" onClick={() => setOpen(id)}>
+                <span className={cn("text-sm", t.unread ? "font-semibold" : "font-medium")}>@{pseudo(id)}</span>
+                <span className="mt-0.5 block truncate text-xs text-muted">{t.last}</span>
+              </button>
+            </li>
+          ))}
         </ul>
       )}
     </div>

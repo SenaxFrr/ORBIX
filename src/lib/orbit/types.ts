@@ -228,6 +228,15 @@ export interface DirectMessage {
   readAt: number;
 }
 
+export interface SupportMessage {
+  id: string;
+  fromId: string;
+  toId: string;
+  text: string;
+  createdAt: string;
+  readAt: number;
+}
+
 export interface FriendRequest {
   id: string;
   fromId: string;

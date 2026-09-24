@@ -14,12 +14,14 @@ import { Route as AppRouteImport } from './routes/app'
 import { Route as ConnexionRouteImport } from './routes/connexion'
 import { Route as AppIndexRouteImport } from './routes/app/index'
 import { Route as AppAdminRouteImport } from './routes/app/admin'
+import { Route as AppAdminUUserIdRouteImport } from './routes/app/admin.u.$userId'
 import { Route as AppChatRouteImport } from './routes/app/chat'
 import { Route as AppFeedRouteImport } from './routes/app/feed'
 import { Route as AppMessagesRouteImport } from './routes/app/messages'
 import { Route as AppPerfsRouteImport } from './routes/app/perfs'
 import { Route as AppProfilRouteImport } from './routes/app/profil'
 import { Route as AppProgrammeRouteImport } from './routes/app/programme'
+import { Route as AppRechercheRouteImport } from './routes/app/recherche'
 import { Route as AppSeanceRouteImport } from './routes/app/seance'
 import { Route as AppSuiviRouteImport } from './routes/app/suivi'
 import { Route as AppUUserIdRouteImport } from './routes/app/u.$userId'
@@ -52,6 +54,11 @@ const AppAdminRoute = AppAdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => AppRoute,
 } as any)
+const AppAdminUUserIdRoute = AppAdminUUserIdRouteImport.update({
+  id: '/u/$userId',
+  path: '/u/$userId',
+  getParentRoute: () => AppAdminRoute,
+} as any)
 const AppChatRoute = AppChatRouteImport.update({
   id: '/chat',
   path: '/chat',
@@ -80,6 +87,11 @@ const AppProfilRoute = AppProfilRouteImport.update({
 const AppProgrammeRoute = AppProgrammeRouteImport.update({
   id: '/programme',
   path: '/programme',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppRechercheRoute = AppRechercheRouteImport.update({
+  id: '/recherche',
+  path: '/recherche',
   getParentRoute: () => AppRoute,
 } as any)
 const AppSeanceRoute = AppSeanceRouteImport.update({
@@ -117,13 +129,15 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
   '/connexion': typeof ConnexionRoute
-  '/app/admin': typeof AppAdminRoute
+  '/app/admin': typeof AppAdminRouteWithChildren
+  '/app/admin/u/$userId': typeof AppAdminUUserIdRoute
   '/app/chat': typeof AppChatRoute
   '/app/feed': typeof AppFeedRoute
   '/app/messages': typeof AppMessagesRoute
   '/app/perfs': typeof AppPerfsRouteWithChildren
   '/app/profil': typeof AppProfilRoute
   '/app/programme': typeof AppProgrammeRouteWithChildren
+  '/app/recherche': typeof AppRechercheRoute
   '/app/seance': typeof AppSeanceRoute
   '/app/suivi': typeof AppSuiviRouteWithChildren
   '/app/u/$userId': typeof AppUUserIdRoute
@@ -135,13 +149,15 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/connexion': typeof ConnexionRoute
-  '/app/admin': typeof AppAdminRoute
+  '/app/admin': typeof AppAdminRouteWithChildren
+  '/app/admin/u/$userId': typeof AppAdminUUserIdRoute
   '/app/chat': typeof AppChatRoute
   '/app/feed': typeof AppFeedRoute
   '/app/messages': typeof AppMessagesRoute
   '/app/perfs': typeof AppPerfsRouteWithChildren
   '/app/profil': typeof AppProfilRoute
   '/app/programme': typeof AppProgrammeRouteWithChildren
+  '/app/recherche': typeof AppRechercheRoute
   '/app/seance': typeof AppSeanceRoute
   '/app/suivi': typeof AppSuiviRouteWithChildren
   '/app/u/$userId': typeof AppUUserIdRoute
@@ -155,13 +171,15 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
   '/connexion': typeof ConnexionRoute
-  '/app/admin': typeof AppAdminRoute
+  '/app/admin': typeof AppAdminRouteWithChildren
+  '/app/admin/u/$userId': typeof AppAdminUUserIdRoute
   '/app/chat': typeof AppChatRoute
   '/app/feed': typeof AppFeedRoute
   '/app/messages': typeof AppMessagesRoute
   '/app/perfs': typeof AppPerfsRouteWithChildren
   '/app/profil': typeof AppProfilRoute
   '/app/programme': typeof AppProgrammeRouteWithChildren
+  '/app/recherche': typeof AppRechercheRoute
   '/app/seance': typeof AppSeanceRoute
   '/app/suivi': typeof AppSuiviRouteWithChildren
   '/app/u/$userId': typeof AppUUserIdRoute
@@ -177,12 +195,14 @@ export interface FileRouteTypes {
     | '/app'
     | '/connexion'
     | '/app/admin'
+    | '/app/admin/u/$userId'
     | '/app/chat'
     | '/app/feed'
     | '/app/messages'
     | '/app/perfs'
     | '/app/profil'
     | '/app/programme'
+    | '/app/recherche'
     | '/app/seance'
     | '/app/suivi'
     | '/app/u/$userId'
@@ -195,12 +215,14 @@ export interface FileRouteTypes {
     | '/'
     | '/connexion'
     | '/app/admin'
+    | '/app/admin/u/$userId'
     | '/app/chat'
     | '/app/feed'
     | '/app/messages'
     | '/app/perfs'
     | '/app/profil'
     | '/app/programme'
+    | '/app/recherche'
     | '/app/seance'
     | '/app/suivi'
     | '/app/u/$userId'
@@ -214,12 +236,14 @@ export interface FileRouteTypes {
     | '/app'
     | '/connexion'
     | '/app/admin'
+    | '/app/admin/u/$userId'
     | '/app/chat'
     | '/app/feed'
     | '/app/messages'
     | '/app/perfs'
     | '/app/profil'
     | '/app/programme'
+    | '/app/recherche'
     | '/app/seance'
     | '/app/suivi'
     | '/app/u/$userId'
@@ -272,6 +296,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/admin/u/$userId': {
+      id: '/app/admin/u/$userId'
+      path: '/u/$userId'
+      fullPath: '/app/admin/u/$userId'
+      preLoaderRoute: typeof AppAdminUUserIdRouteImport
+      parentRoute: typeof AppAdminRoute
+    }
     '/app/chat': {
       id: '/app/chat'
       path: '/chat'
@@ -312,6 +343,13 @@ declare module '@tanstack/react-router' {
       path: '/programme'
       fullPath: '/app/programme'
       preLoaderRoute: typeof AppProgrammeRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/recherche': {
+      id: '/app/recherche'
+      path: '/recherche'
+      fullPath: '/app/recherche'
+      preLoaderRoute: typeof AppRechercheRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/seance': {
@@ -395,14 +433,27 @@ const AppSuiviRouteWithChildren = AppSuiviRoute._addFileChildren(
   AppSuiviRouteChildren,
 )
 
+interface AppAdminRouteChildren {
+  AppAdminUUserIdRoute: typeof AppAdminUUserIdRoute
+}
+
+const AppAdminRouteChildren: AppAdminRouteChildren = {
+  AppAdminUUserIdRoute: AppAdminUUserIdRoute,
+}
+
+const AppAdminRouteWithChildren = AppAdminRoute._addFileChildren(
+  AppAdminRouteChildren,
+)
+
 interface AppRouteChildren {
-  AppAdminRoute: typeof AppAdminRoute
+  AppAdminRoute: typeof AppAdminRouteWithChildren
   AppChatRoute: typeof AppChatRoute
   AppFeedRoute: typeof AppFeedRoute
   AppMessagesRoute: typeof AppMessagesRoute
   AppPerfsRoute: typeof AppPerfsRouteWithChildren
   AppProfilRoute: typeof AppProfilRoute
   AppProgrammeRoute: typeof AppProgrammeRouteWithChildren
+  AppRechercheRoute: typeof AppRechercheRoute
   AppSeanceRoute: typeof AppSeanceRoute
   AppSuiviRoute: typeof AppSuiviRouteWithChildren
   AppUUserIdRoute: typeof AppUUserIdRoute
@@ -410,13 +461,14 @@ interface AppRouteChildren {
 }
 
 const AppRouteChildren: AppRouteChildren = {
-  AppAdminRoute: AppAdminRoute,
+  AppAdminRoute: AppAdminRouteWithChildren,
   AppChatRoute: AppChatRoute,
   AppFeedRoute: AppFeedRoute,
   AppMessagesRoute: AppMessagesRoute,
   AppPerfsRoute: AppPerfsRouteWithChildren,
   AppProfilRoute: AppProfilRoute,
   AppProgrammeRoute: AppProgrammeRouteWithChildren,
+  AppRechercheRoute: AppRechercheRoute,
   AppSeanceRoute: AppSeanceRoute,
   AppSuiviRoute: AppSuiviRouteWithChildren,
   AppUUserIdRoute: AppUUserIdRoute,

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { formatAge, formatDateFull, formatFr, formatSet, formatVolume } from "@/lib/orbit/format";
 import { GOAL_LABEL, LEVEL_LABEL, SEX_LABEL } from "@/lib/orbit/labels";
 import { computeGlobalOrbit, liftRankFor, nextRankInfo } from "@/lib/orbit/ranks";
-import { useOrbitStore, usePool, useSessionUser } from "@/lib/orbit/store";
+import { isStaffAccount, useOrbitStore, usePool, useSessionUser } from "@/lib/orbit/store";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/app/u/$userId")({ component: PublicProfil });
@@ -68,12 +68,14 @@ function PublicBody({
   const store = useOrbitStore();
   const pool = usePool();
   const navigate = useNavigate();
+  const me = useSessionUser();
   const [friendErr, setFriendErr] = useState("");
   const user = store.users.find((u) => u.id === userId && !u.isNpc);
   if (!user) {
     return <p className="mt-10 text-sm text-muted">Ce compte n’existe plus.</p>;
   }
   const mine = user.id === meId;
+  const staffPair = isStaffAccount(user) || isStaffAccount(me);
   const orbit = computeGlobalOrbit(user, store.sets, store.workouts, store.declaredPerfs, pool);
   const progress = nextRankInfo(orbit.score, orbit.classified);
   const lifts = pool
@@ -182,6 +184,15 @@ function PublicBody({
           <div className="grid gap-2">
             <p className="text-sm text-muted">C’est toi</p>
             <Button onClick={onEdit}>Modifier mon profil</Button>
+          </div>
+        ) : staffPair ? (
+          <div className="grid gap-2">
+            <p className="text-sm text-muted">Les comptes admin ne peuvent pas être ajoutés en ami.</p>
+            {already ? (
+              <Button variant="secondary" className="w-full" onClick={() => setConfirmRemove(true)}>
+                Retirer des amis
+              </Button>
+            ) : null}
           </div>
         ) : already ? (
           <Button variant="secondary" className="w-full" onClick={() => setConfirmRemove(true)}>

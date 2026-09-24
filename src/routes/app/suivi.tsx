@@ -32,12 +32,20 @@ export const Route = createFileRoute("/app/suivi")({ component: SuiviPage });
 
 function SuiviPage() {
   const pathname = useLocation({ select: (l) => l.pathname });
-  const [tab, setTab] = useState<"graphes" | "calendrier" | "poids">("graphes");
   if (pathname !== "/app/suivi") return <Outlet />;
   return (
     <main className="px-4 pb-36">
       <h1 className="font-display text-2xl font-semibold">Suivi</h1>
       <ResumeBanner />
+      <SuiviPanels />
+    </main>
+  );
+}
+
+export function SuiviPanels() {
+  const [tab, setTab] = useState<"graphes" | "calendrier" | "poids">("graphes");
+  return (
+    <div>
       <div className="mb-4 mt-3 grid grid-cols-3 gap-1 rounded-xl bg-surface-2 p-1">
         <TabBtn active={tab === "graphes"} onClick={() => setTab("graphes")}>
           Graphes
@@ -50,7 +58,7 @@ function SuiviPage() {
         </TabBtn>
       </div>
       {tab === "graphes" ? <Graphs /> : tab === "calendrier" ? <Cal /> : <Poids />}
-    </main>
+    </div>
   );
 }
 

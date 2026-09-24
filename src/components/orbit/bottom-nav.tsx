@@ -1,13 +1,13 @@
 import { Link } from "@tanstack/react-router";
-import { Activity, Dumbbell, Medal, MessageCircle, Newspaper } from "lucide-react";
+import { Dumbbell, Medal, MessageCircle, Newspaper, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const ITEMS = [
   { to: "/app/feed", label: "Feed", icon: Newspaper },
   { to: "/app/programme", label: "Programme", icon: Dumbbell },
   { to: "/app/perfs", label: "Perfs", icon: Medal },
-  { to: "/app/suivi", label: "Suivi", icon: Activity },
   { to: "/app/chat", label: "Chat", icon: MessageCircle },
+  { to: "/app/recherche", label: "Rechercher", icon: Search },
 ] as const;
 
 export function BottomNav({ pathname }: { pathname: string }) {
