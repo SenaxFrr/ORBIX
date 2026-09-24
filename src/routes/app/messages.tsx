@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { clockHm, daySeparatorLabel, formatClock } from "@/lib/orbit/format";
-import { conversationKey, useOrbitStore, useSessionUser } from "@/lib/orbit/store";
+import { conversationKey, DM_REACTIONS, useOrbitStore, useSessionUser } from "@/lib/orbit/store";
 import type { DirectMessage } from "@/lib/orbit/types";
 import { cn } from "@/lib/utils";
 
@@ -123,6 +123,7 @@ function Thread({ peerId }: { peerId: string }) {
   const navigate = useNavigate();
   const [text, setText] = useState("");
   const [err, setErr] = useState("");
+  const [picker, setPicker] = useState<string | null>(null);
   const bottom = useRef<HTMLDivElement>(null);
   const peer = store.users.find((u) => u.id === peerId && !u.isNpc);
   const mine = peerId === me.id;
@@ -181,7 +182,7 @@ function Thread({ peerId }: { peerId: string }) {
               {day ? (
                 <p className="py-2 text-center text-[11px] text-subtle">{daySeparatorLabel(m.createdAt)}</p>
               ) : null}
-              <div className={cn("flex", own ? "justify-end" : "justify-start")}>
+              <div className={cn("flex flex-col", own ? "items-end" : "items-start")}>
                 <div
                   className={cn(
                     "max-w-[80%] px-3 py-2 text-sm",
@@ -189,12 +190,51 @@ function Thread({ peerId }: { peerId: string }) {
                       ? "rounded-2xl rounded-br-md bg-accent text-accent-fg"
                       : "rounded-2xl rounded-bl-md bg-surface text-fg",
                   )}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    setPicker(m.id);
+                  }}
+                  onPointerDown={() => {
+                    const hold = window.setTimeout(() => setPicker(m.id), 450);
+                    const up = () => {
+                      window.clearTimeout(hold);
+                      window.removeEventListener("pointerup", up);
+                    };
+                    window.addEventListener("pointerup", up);
+                  }}
                 >
                   <p className="whitespace-pre-wrap [overflow-wrap:break-word] [word-break:normal]">{m.text}</p>
-                  <p className={cn("mt-1 text-[10px] num", own ? "text-accent-fg/70" : "text-subtle")}>
+                  <button
+                    type="button"
+                    className={cn("mt-1 text-[10px] num", own ? "text-accent-fg/70" : "text-subtle")}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={() => setPicker((id) => (id === m.id ? null : m.id))}
+                  >
                     {clockHm(m.createdAt)}
-                  </p>
+                  </button>
                 </div>
+                {picker === m.id ? (
+                  <div className="mt-1 flex gap-1 rounded-full bg-surface-2 px-2 py-1">
+                    {DM_REACTIONS.map((emoji) => (
+                      <button
+                        key={emoji}
+                        type="button"
+                        className={cn(
+                          "flex size-8 items-center justify-center rounded-full text-base",
+                          m.reactions?.[me.id] === emoji && "bg-surface",
+                        )}
+                        onClick={() => {
+                          store.reactToDm(m.id, emoji);
+                          setPicker(null);
+                        }}
+                        aria-label={emoji}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+                <ReactionPills reactions={m.reactions} />
               </div>
             </li>
           );
@@ -231,6 +271,22 @@ function Thread({ peerId }: { peerId: string }) {
         </form>
       ) : null}
     </main>
+  );
+}
+
+function ReactionPills({ reactions }: { reactions?: Record<string, string> }) {
+  const emojis = [...new Set(Object.values(reactions ?? {}))].filter((e) =>
+    (DM_REACTIONS as readonly string[]).includes(e),
+  );
+  if (!emojis.length) return null;
+  return (
+    <div className="mt-1 flex gap-1">
+      {emojis.map((emoji) => (
+        <span key={emoji} className="rounded-full bg-surface-2 px-1.5 py-0.5 text-xs leading-none">
+          {emoji}
+        </span>
+      ))}
+    </div>
   );
 }
 

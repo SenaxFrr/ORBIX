@@ -878,7 +878,14 @@ function SupportInbox() {
           {threads.map(([id, t]) => (
             <li key={id}>
               <button className="w-full rounded-xl bg-surface px-3 py-2 text-left" onClick={() => setOpen(id)}>
-                <span className={cn("text-sm", t.unread ? "font-semibold" : "font-medium")}>@{pseudo(id)}</span>
+                <span className="flex items-center gap-2">
+                  <span className={cn("text-sm", t.unread ? "font-semibold" : "font-medium")}>@{pseudo(id)}</span>
+                  {t.unread ? (
+                    <span className="rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-semibold text-accent-fg num">
+                      {t.unread}
+                    </span>
+                  ) : null}
+                </span>
                 <span className="mt-0.5 block truncate text-xs text-muted">{t.last}</span>
               </button>
             </li>

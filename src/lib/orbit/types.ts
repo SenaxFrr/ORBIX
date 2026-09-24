@@ -229,6 +229,7 @@ export interface DirectMessage {
   text: string;
   createdAt: string;
   readAt: number;
+  reactions: Record<string, string>;
 }
 
 export interface SupportMessage {

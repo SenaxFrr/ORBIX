@@ -130,6 +130,7 @@ interface OrbitState extends OrbitData {
   deleteMessage: (id: string) => void;
   sendDm: (toId: string, text: string) => { ok: true } | { ok: false; error: string };
   markDmRead: (peerId: string) => void;
+  reactToDm: (messageId: string, emoji: string) => void;
   deleteDm: (id: string) => void;
   deleteDmThread: (a: string, b: string) => void;
   sendSupport: (text: string) => { ok: true } | { ok: false; error: string };
@@ -196,6 +197,19 @@ export function conversationKey(a: string, b: string): string {
   return a < b ? `${a}_${b}` : `${b}_${a}`;
 }
 
+export const DM_REACTIONS = ["👍", "🔥", "💪", "😂", "❤️", "👀"] as const;
+
+function cleanReactions(raw: unknown, fromId: string, toId: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return out;
+  for (const [uid, emoji] of Object.entries(raw as Record<string, unknown>)) {
+    if ((uid === fromId || uid === toId) && typeof emoji === "string" && (DM_REACTIONS as readonly string[]).includes(emoji)) {
+      out[uid] = emoji;
+    }
+  }
+  return out;
+}
+
 export function normalizeDms(v: unknown): DirectMessage[] {
   if (!Array.isArray(v)) return [];
   const out: DirectMessage[] = [];
@@ -209,13 +223,27 @@ export function normalizeDms(v: unknown): DirectMessage[] {
     const createdAt = typeof m.createdAt === "string" ? m.createdAt : "";
     if (!id || !fromId || !toId || fromId === toId || !text.trim() || !createdAt) continue;
     const readAt = typeof m.readAt === "number" && Number.isFinite(m.readAt) && m.readAt > 0 ? m.readAt : 0;
-    out.push({ id, fromId, toId, text, createdAt, readAt });
+    out.push({ id, fromId, toId, text, createdAt, readAt, reactions: cleanReactions(m.reactions, fromId, toId) });
   }
   return out;
 }
 
 export function normalizeSupport(v: unknown): SupportMessage[] {
-  return normalizeDms(v);
+  if (!Array.isArray(v)) return [];
+  const out: SupportMessage[] = [];
+  for (const raw of v) {
+    if (!raw || typeof raw !== "object") continue;
+    const m = raw as Record<string, unknown>;
+    const id = typeof m.id === "string" ? m.id : "";
+    const fromId = typeof m.fromId === "string" ? m.fromId : "";
+    const toId = typeof m.toId === "string" ? m.toId : "";
+    const text = typeof m.text === "string" ? m.text.slice(0, 200) : "";
+    const createdAt = typeof m.createdAt === "string" ? m.createdAt : "";
+    if (!id || !fromId || !toId || fromId === toId || !text.trim() || !createdAt) continue;
+    const readAt = typeof m.readAt === "number" && Number.isFinite(m.readAt) && m.readAt > 0 ? m.readAt : 0;
+    out.push({ id, fromId, toId, text, createdAt, readAt });
+  }
+  return out;
 }
 
 export function isStaffAccount(u: { isAdmin?: boolean; pseudo?: string } | null | undefined): boolean {
@@ -1157,6 +1185,7 @@ export const useOrbitStore = create<OrbitState>()(
           text: t,
           createdAt: new Date().toISOString(),
           readAt: 0,
+          reactions: {},
         };
         set({
           dms: [...normalizeDms(s.dms), msg],
@@ -1175,6 +1204,21 @@ export const useOrbitStore = create<OrbitState>()(
           dms: normalizeDms(s.dms).map((m) =>
             m.fromId === peerId && m.toId === me.id && !(m.readAt > 0) ? { ...m, readAt: now } : m,
           ),
+        }));
+      },
+      reactToDm: (messageId, emoji) => {
+        const me = sessionUser(get());
+        if (!me) return;
+        if (!(DM_REACTIONS as readonly string[]).includes(emoji)) return;
+        set((s) => ({
+          dms: normalizeDms(s.dms).map((m) => {
+            if (m.id !== messageId) return m;
+            if (m.fromId !== me.id && m.toId !== me.id) return m;
+            const reactions = { ...m.reactions };
+            if (reactions[me.id] === emoji) delete reactions[me.id];
+            else reactions[me.id] = emoji;
+            return { ...m, reactions };
+          }),
         }));
       },
       deleteDm: (id) => {

@@ -11,7 +11,7 @@ import { formatAge, formatBodyweight, formatClock, formatFr, formatHeight } from
 import { GOAL_LABEL, LEVEL_LABEL, SEX_LABEL } from "@/lib/orbit/labels";
 import { computeGlobalOrbit, nextRankInfo } from "@/lib/orbit/ranks";
 import { THEME_SWATCHES } from "@/lib/orbit/theme";
-import type { Goal, Level, Sex } from "@/lib/orbit/types";
+import type { Goal, Level, Sex, SupportMessage } from "@/lib/orbit/types";
 import { isStaffAccount, useOrbitStore, usePool, useSessionUser } from "@/lib/orbit/store";
 import { SuiviPanels } from "@/routes/app/suivi";
 import { cn } from "@/lib/utils";
@@ -509,6 +509,17 @@ function Amis() {
   );
 }
 
+function supportReceipt(msgs: SupportMessage[], meId: string): "Reçu" | "Lu" | "Répondu" | null {
+  const mine = msgs.filter((m) => m.fromId === meId);
+  const last = mine[mine.length - 1];
+  if (!last) return null;
+  const answered = msgs.some(
+    (m) => m.fromId !== meId && +new Date(m.createdAt) > +new Date(last.createdAt),
+  );
+  if (answered) return "Répondu";
+  if (last.readAt > 0) return "Lu";
+  return "Reçu";
+}
 function Support() {
   const store = useOrbitStore();
   const me = useSessionUser()!;
@@ -517,6 +528,8 @@ function Support() {
   const msgs = (store.supportMessages ?? [])
     .filter((m) => m.fromId === me.id || m.toId === me.id)
     .sort((a, b) => +new Date(a.createdAt) - +new Date(b.createdAt));
+  const lastOwn = [...msgs].reverse().find((m) => m.fromId === me.id);
+  const receipt = supportReceipt(msgs, me.id);
   const unread = msgs.filter((m) => m.toId === me.id && !(m.readAt > 0)).length;
   useEffect(() => {
     if (!isStaffAccount(me) && unread) store.markSupportRead();
@@ -531,7 +544,7 @@ function Support() {
           {msgs.map((m) => {
             const mine = m.fromId === me.id;
             return (
-              <li key={m.id} className={cn("flex", mine ? "justify-end" : "justify-start")}>
+              <li key={m.id} className={cn("flex flex-col", mine ? "items-end" : "items-start")}>
                 <div
                   className={cn(
                     "max-w-[85%] rounded-2xl px-3 py-2 text-sm",
@@ -543,6 +556,9 @@ function Support() {
                     {formatClock(m.createdAt)}
                   </p>
                 </div>
+                {mine && m.id === lastOwn?.id && receipt ? (
+                  <p className="mt-1 px-1 text-[10px] text-subtle">{receipt}</p>
+                ) : null}
               </li>
             );
           })}

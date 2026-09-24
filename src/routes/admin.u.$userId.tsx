@@ -53,6 +53,11 @@ function AdminUserPage() {
     setBio(user?.bio ?? "");
   }, [user?.bio, user?.id]);
 
+  const supportUnread = (store.supportMessages ?? []).some((m) => m.fromId === userId && !(m.readAt > 0));
+  useEffect(() => {
+    if (me?.isAdmin && supportUnread) store.markSupportRead(userId);
+  }, [me?.isAdmin, supportUnread, userId, store]);
+
   const classified = classifiedExercises(pool);
   const perfs = store.declaredPerfs
     .filter((d) => d.userId === userId)
