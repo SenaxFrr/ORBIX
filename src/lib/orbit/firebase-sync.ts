@@ -1,7 +1,7 @@
 import { onValue, ref, set } from "firebase/database";
 import { toast } from "sonner";
 import { rtdb } from "@/lib/firebase";
-import { isThemeId } from "./theme";
+import { isThemeId, isThemeMode } from "./theme";
 import { normalizeClosed, normalizeDms, normalizeMuted, normalizeRequests, normalizeSupport, useOrbitStore } from "./store";
 import type { User } from "./types";
 
@@ -32,7 +32,15 @@ function cleanUsers(v: unknown): User[] | null {
   if (!Array.isArray(v)) return null;
   return v.map((raw) => {
     const u = { ...(raw as User) } as User & { glow?: unknown };
-    if (!isThemeId(u.theme)) delete u.theme;
+    const accent = isThemeId(u.themeAccent) ? u.themeAccent : isThemeId(u.theme) ? u.theme : undefined;
+    if (accent) {
+      u.themeAccent = accent;
+      u.theme = accent;
+    } else {
+      delete u.theme;
+      delete u.themeAccent;
+    }
+    if (!isThemeMode(u.themeMode)) delete u.themeMode;
     delete u.glow;
     if (typeof u.bio !== "string") delete u.bio;
     else u.bio = u.bio.slice(0, 160);
@@ -70,13 +78,13 @@ function sayOnline() {
   offlineSaid = false;
   if (onlineSaid) return;
   onlineSaid = true;
-  toast.message("En ligne");
+  toast.message("En ligne", { className: "orbit-net" });
 }
 
 function sayOffline() {
   if (offlineSaid) return;
   offlineSaid = true;
-  toast.message("Hors ligne");
+  toast.message("Hors ligne", { className: "orbit-net" });
 }
 
 export function startOrbitFirebaseSync() {

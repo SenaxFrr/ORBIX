@@ -225,15 +225,29 @@ function AdminUserPage() {
             </Button>
           </div>
           <div>
-            <Label>Thème</Label>
+            <Label>Apparence</Label>
+            <div className="mt-2 grid grid-cols-2 gap-1">
+              <button
+                className={cn("h-10 text-sm", (user.themeMode ?? "sombre") === "sombre" ? "bg-accent text-accent-fg" : "bg-surface-2")}
+                onClick={() => saveProfile({ themeMode: "sombre" })}
+              >
+                Sombre
+              </button>
+              <button
+                className={cn("h-10 text-sm", user.themeMode === "clair" ? "bg-accent text-accent-fg" : "bg-surface-2")}
+                onClick={() => saveProfile({ themeMode: "clair" })}
+              >
+                Clair
+              </button>
+            </div>
             <div className="mt-2 flex flex-wrap gap-2">
               {THEME_SWATCHES.map((sw) => (
                 <button
                   key={sw.id}
-                  onClick={() => saveProfile({ theme: sw.id })}
+                  onClick={() => saveProfile({ themeAccent: sw.id, theme: sw.id })}
                   className={cn(
-                    "flex h-10 items-center gap-2 rounded-full bg-surface-2 px-3 text-sm",
-                    (user.theme ?? "or") === sw.id && "shadow-[var(--shadow-border)]",
+                    "flex h-10 items-center gap-2 bg-surface-2 px-3 text-sm",
+                    (user.themeAccent ?? user.theme ?? "or") === sw.id && "shadow-[0_0_0_1px_var(--color-accent)]",
                   )}
                 >
                   <span className="size-3 rounded-full" style={{ background: sw.hex }} />

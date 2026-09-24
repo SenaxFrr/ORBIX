@@ -18,7 +18,7 @@ function DmButton() {
       onClick={() => void navigate({ to: "/app/messages", search: {} })}
       aria-label={n > 0 ? `Messages, ${n} non lus` : "Messages"}
     >
-      <MessageSquare className="size-5" />
+      <MessageSquare className="size-5 text-accent" />
       {n > 0 ? (
         <span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-semibold text-accent-fg">
           {n > 9 ? "9+" : n}

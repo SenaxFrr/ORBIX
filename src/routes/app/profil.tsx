@@ -136,7 +136,8 @@ function Compte() {
   const store = useOrbitStore();
   const user = useSessionUser()!;
   const navigate = useNavigate();
-  const theme = user.theme ?? "or";
+  const accent = user.themeAccent ?? user.theme ?? "or";
+  const mode = user.themeMode ?? "sombre";
   const principal = user.pseudo.toLowerCase() === "admin";
   const [curPw, setCurPw] = useState("");
   const [newPw, setNewPw] = useState("");
@@ -245,16 +246,30 @@ function Compte() {
       </div>
 
       <h2 className="mt-8 text-sm font-medium">Apparence</h2>
-      <p className="text-xs text-muted">Uniquement sur ton compte. Le fond reste sombre.</p>
+      <p className="text-xs text-muted">Uniquement sur ton compte.</p>
+      <div className="mt-3 grid grid-cols-2 gap-1">
+        <button
+          className={cn("h-10 rounded-lg text-sm", mode === "sombre" ? "bg-accent text-accent-fg" : "bg-surface-2")}
+          onClick={() => store.updateProfile({ themeMode: "sombre" })}
+        >
+          Sombre
+        </button>
+        <button
+          className={cn("h-10 rounded-lg text-sm", mode === "clair" ? "bg-accent text-accent-fg" : "bg-surface-2")}
+          onClick={() => store.updateProfile({ themeMode: "clair" })}
+        >
+          Clair
+        </button>
+      </div>
       <div className="mt-3 flex flex-wrap gap-2">
         {THEME_SWATCHES.map((sw) => (
           <button
             key={sw.id}
             aria-label={sw.label}
-            onClick={() => store.updateProfile({ theme: sw.id })}
+            onClick={() => store.updateProfile({ themeAccent: sw.id, theme: sw.id })}
             className={cn(
               "flex h-11 items-center gap-2 rounded-full bg-surface-2 px-3 text-sm",
-              theme === sw.id && "shadow-[var(--shadow-border)]",
+              accent === sw.id && "shadow-[0_0_0_1px_var(--color-accent)]",
             )}
           >
             <span className="size-4 rounded-full" style={{ background: sw.hex }} />

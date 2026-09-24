@@ -6,7 +6,7 @@ import { todayKey } from "./format";
 import { BUILTIN_PROGRAMS } from "./programs";
 import { computeGlobalOrbit, diffRankEvents, lastSetForExercise, liftRankFor } from "./ranks";
 import { ADMIN_ID, buildBaseWorld, makeAdmin } from "./seed";
-import { isThemeId } from "./theme";
+import { isThemeId, isThemeMode } from "./theme";
 import type {
   ChatMessage,
   DeclaredPerf,
@@ -60,7 +60,7 @@ interface OrbitData {
 }
 
 type ProfilePatch = Partial<
-  Pick<User, "bodyweight" | "height" | "sex" | "age" | "firstName" | "level" | "goal" | "theme" | "bio">
+  Pick<User, "bodyweight" | "height" | "sex" | "age" | "firstName" | "level" | "goal" | "theme" | "themeAccent" | "themeMode" | "bio">
 >;
 
 interface OrbitState extends OrbitData {
@@ -534,6 +534,8 @@ export const useOrbitStore = create<OrbitState>()(
           level: "debutant",
           goal: "force",
           theme: "or",
+          themeAccent: "or",
+          themeMode: "sombre",
           createdAt: new Date().toISOString(),
         };
         const today = todayKey();
@@ -571,9 +573,13 @@ export const useOrbitStore = create<OrbitState>()(
         const today = todayKey();
         const clean: ProfilePatch = { ...patch };
         if (clean.theme != null && !isThemeId(clean.theme)) delete clean.theme;
+        if (clean.themeAccent != null && !isThemeId(clean.themeAccent)) delete clean.themeAccent;
+        if (clean.themeMode != null && !isThemeMode(clean.themeMode)) delete clean.themeMode;
+        if (clean.themeAccent) clean.theme = clean.themeAccent;
+        else if (clean.theme) clean.themeAccent = clean.theme;
         if (typeof clean.bio === "string") clean.bio = clean.bio.trim().slice(0, 160);
         const keys = Object.keys(clean) as (keyof ProfilePatch)[];
-        const appearanceOnly = keys.length > 0 && keys.every((k) => k === "theme");
+        const appearanceOnly = keys.length > 0 && keys.every((k) => k === "theme" || k === "themeAccent" || k === "themeMode");
         set((s) => {
           let extra: Partial<OrbitData> = {};
           if (typeof clean.bodyweight === "number") {
@@ -1242,6 +1248,10 @@ export const useOrbitStore = create<OrbitState>()(
         }
         const clean: ProfilePatch = { ...patch };
         if (clean.theme != null && !isThemeId(clean.theme)) delete clean.theme;
+        if (clean.themeAccent != null && !isThemeId(clean.themeAccent)) delete clean.themeAccent;
+        if (clean.themeMode != null && !isThemeMode(clean.themeMode)) delete clean.themeMode;
+        if (clean.themeAccent) clean.theme = clean.themeAccent;
+        else if (clean.theme) clean.themeAccent = clean.theme;
         if (typeof clean.bio === "string") clean.bio = clean.bio.trim().slice(0, 160);
         if (typeof clean.age === "number" && (clean.age < 13 || clean.age > 80)) {
           return { ok: false, error: "Âge invalide." };

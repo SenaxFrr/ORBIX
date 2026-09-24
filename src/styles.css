@@ -6,7 +6,7 @@
   --font-display: "Syne", "Outfit", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
 
-  --color-bg: #0b0c10;
+  --color-bg: #07080C;
   --color-surface: #14161c;
   --color-surface-2: #1c1f28;
   --color-fg: #f3f4f7;
@@ -14,6 +14,7 @@
   --color-subtle: #5c6478;
   --color-accent: #e8c547;
   --color-accent-fg: #16120a;
+  --color-accent-ink: #e8c547;
   --color-border: rgb(232 237 245 / 0.1);
   --color-glow: color-mix(in oklab, var(--color-accent) 18%, transparent);
   --color-danger: #f07178;
@@ -34,6 +35,7 @@
     -webkit-font-smoothing: antialiased;
     background: var(--color-bg);
     color: var(--color-fg);
+    accent-color: var(--color-accent);
   }
 
   body {
@@ -68,8 +70,15 @@
   input, textarea, select { font-size: 16px; }
 
   :focus-visible {
-    outline: 2px solid color-mix(in oklab, var(--color-accent) 70%, white);
+    outline: 2px solid var(--color-accent);
     outline-offset: 2px;
+  }
+
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible {
+    outline: 2px solid var(--color-accent);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-accent) 28%, transparent);
   }
 
   ::selection {
@@ -78,6 +87,26 @@
 }
 
 @layer components {
+  html[data-mode="clair"] .text-accent {
+    color: var(--color-accent-ink);
+  }
+
+  html[data-mode="clair"] .orbit-wash {
+    background:
+      radial-gradient(720px 280px at 50% -8%, color-mix(in oklab, var(--color-accent) 16%, transparent), transparent 68%),
+      var(--color-bg);
+  }
+
+  html[data-mode="console"] .orbit-wash {
+    background: #090a0c;
+  }
+
+  [data-sonner-toast].orbit-net {
+    background: color-mix(in oklab, var(--color-accent) 16%, var(--color-surface)) !important;
+    color: var(--color-fg) !important;
+    border: 1px solid var(--color-accent) !important;
+  }
+
   .orbit-shell {
     position: relative;
     isolation: isolate;
@@ -134,23 +163,24 @@
   }
 
   .console-shell {
-    --color-bg: #070806;
-    --color-surface: #0e120d;
-    --color-surface-2: #161b14;
-    --color-fg: #d7e4c8;
-    --color-muted: #8d9a7c;
-    --color-subtle: #667056;
-    --color-accent: #c6f54a;
-    --color-accent-fg: #12160a;
-    --color-border: #2c3824;
-    --color-danger: #ff5d4a;
-    --color-warn: #e6a23c;
+    --color-bg: #090a0c;
+    --color-surface: #121418;
+    --color-surface-2: #1a1d22;
+    --color-fg: #e6e8ec;
+    --color-muted: #9aa1ab;
+    --color-subtle: #6d747e;
+    --color-accent: #c5cbd6;
+    --color-accent-fg: #12141a;
+    --color-accent-ink: #c5cbd6;
+    --color-border: #2a2e36;
+    --color-danger: #e15a4a;
+    --color-warn: #c4923a;
+    --color-glow: transparent;
     --shadow-glow: none;
     --shadow-border: none;
     min-height: 100dvh;
     background:
-      linear-gradient(180deg, rgb(198 245 74 / 0.05), transparent 140px),
-      repeating-linear-gradient(0deg, transparent, transparent 3px, rgb(198 245 74 / 0.025) 4px),
+      repeating-linear-gradient(0deg, transparent, transparent 3px, rgb(197 203 214 / 0.035) 4px),
       var(--color-bg);
     color: var(--color-fg);
     font-family: var(--font-mono);

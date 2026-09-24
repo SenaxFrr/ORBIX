@@ -1,19 +1,23 @@
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect } from "react";
+import { useRouterState } from "@tanstack/react-router";
 import { Toaster, toast } from "sonner";
 import { OrbitGlyph } from "./glyph";
 import { RankStage } from "./rank-stage";
-import { applyAccountTheme } from "@/lib/orbit/theme";
+import { applyAccountTheme, applyConsoleTheme } from "@/lib/orbit/theme";
 import { useOrbitStore, useSessionUser } from "@/lib/orbit/store";
 
 export function OrbitProvider({ children }: { children: React.ReactNode }) {
   const hydrated = useOrbitStore((s) => s.hydrated);
-  const theme = useSessionUser()?.theme;
-  const userId = useSessionUser()?.id;
+  const user = useSessionUser();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const consoleOn = pathname === "/admin" || pathname.startsWith("/admin/");
+  const mode = user?.themeMode === "clair" ? "clair" : "sombre";
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!hydrated) return;
-    applyAccountTheme(theme);
-  }, [hydrated, theme, userId]);
+    if (consoleOn) applyConsoleTheme();
+    else applyAccountTheme(user?.themeMode, user?.themeAccent ?? user?.theme);
+  }, [hydrated, consoleOn, user?.themeMode, user?.themeAccent, user?.theme, user?.id]);
 
   useEffect(() => {
     const persist = useOrbitStore.persist;
@@ -38,7 +42,7 @@ export function OrbitProvider({ children }: { children: React.ReactNode }) {
       })
       .catch((err) => {
         console.error(err);
-        toast.message("Hors ligne");
+        toast.message("Hors ligne", { className: "orbit-net" });
       });
     return () => {
       alive = false;
@@ -58,7 +62,7 @@ export function OrbitProvider({ children }: { children: React.ReactNode }) {
       <div className="orbit-wash" />
       <div className="relative z-10">{children}</div>
       <RankStage />
-      <Toaster theme="dark" position="top-center" richColors />
+      <Toaster theme={consoleOn || mode === "sombre" ? "dark" : "light"} position="top-center" richColors />
     </div>
   );
 }
