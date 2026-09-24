@@ -16,6 +16,7 @@ import { Route as AppIndexRouteImport } from './routes/app/index'
 import { Route as AppAdminRouteImport } from './routes/app/admin'
 import { Route as AppChatRouteImport } from './routes/app/chat'
 import { Route as AppFeedRouteImport } from './routes/app/feed'
+import { Route as AppMessagesRouteImport } from './routes/app/messages'
 import { Route as AppPerfsRouteImport } from './routes/app/perfs'
 import { Route as AppProfilRouteImport } from './routes/app/profil'
 import { Route as AppProgrammeRouteImport } from './routes/app/programme'
@@ -59,6 +60,11 @@ const AppChatRoute = AppChatRouteImport.update({
 const AppFeedRoute = AppFeedRouteImport.update({
   id: '/feed',
   path: '/feed',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppMessagesRoute = AppMessagesRouteImport.update({
+  id: '/messages',
+  path: '/messages',
   getParentRoute: () => AppRoute,
 } as any)
 const AppPerfsRoute = AppPerfsRouteImport.update({
@@ -114,6 +120,7 @@ export interface FileRoutesByFullPath {
   '/app/admin': typeof AppAdminRoute
   '/app/chat': typeof AppChatRoute
   '/app/feed': typeof AppFeedRoute
+  '/app/messages': typeof AppMessagesRoute
   '/app/perfs': typeof AppPerfsRouteWithChildren
   '/app/profil': typeof AppProfilRoute
   '/app/programme': typeof AppProgrammeRouteWithChildren
@@ -131,6 +138,7 @@ export interface FileRoutesByTo {
   '/app/admin': typeof AppAdminRoute
   '/app/chat': typeof AppChatRoute
   '/app/feed': typeof AppFeedRoute
+  '/app/messages': typeof AppMessagesRoute
   '/app/perfs': typeof AppPerfsRouteWithChildren
   '/app/profil': typeof AppProfilRoute
   '/app/programme': typeof AppProgrammeRouteWithChildren
@@ -150,6 +158,7 @@ export interface FileRoutesById {
   '/app/admin': typeof AppAdminRoute
   '/app/chat': typeof AppChatRoute
   '/app/feed': typeof AppFeedRoute
+  '/app/messages': typeof AppMessagesRoute
   '/app/perfs': typeof AppPerfsRouteWithChildren
   '/app/profil': typeof AppProfilRoute
   '/app/programme': typeof AppProgrammeRouteWithChildren
@@ -170,6 +179,7 @@ export interface FileRouteTypes {
     | '/app/admin'
     | '/app/chat'
     | '/app/feed'
+    | '/app/messages'
     | '/app/perfs'
     | '/app/profil'
     | '/app/programme'
@@ -187,6 +197,7 @@ export interface FileRouteTypes {
     | '/app/admin'
     | '/app/chat'
     | '/app/feed'
+    | '/app/messages'
     | '/app/perfs'
     | '/app/profil'
     | '/app/programme'
@@ -205,6 +216,7 @@ export interface FileRouteTypes {
     | '/app/admin'
     | '/app/chat'
     | '/app/feed'
+    | '/app/messages'
     | '/app/perfs'
     | '/app/profil'
     | '/app/programme'
@@ -272,6 +284,13 @@ declare module '@tanstack/react-router' {
       path: '/feed'
       fullPath: '/app/feed'
       preLoaderRoute: typeof AppFeedRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/messages': {
+      id: '/app/messages'
+      path: '/messages'
+      fullPath: '/app/messages'
+      preLoaderRoute: typeof AppMessagesRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/perfs': {
@@ -380,6 +399,7 @@ interface AppRouteChildren {
   AppAdminRoute: typeof AppAdminRoute
   AppChatRoute: typeof AppChatRoute
   AppFeedRoute: typeof AppFeedRoute
+  AppMessagesRoute: typeof AppMessagesRoute
   AppPerfsRoute: typeof AppPerfsRouteWithChildren
   AppProfilRoute: typeof AppProfilRoute
   AppProgrammeRoute: typeof AppProgrammeRouteWithChildren
@@ -393,6 +413,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppAdminRoute: AppAdminRoute,
   AppChatRoute: AppChatRoute,
   AppFeedRoute: AppFeedRoute,
+  AppMessagesRoute: AppMessagesRoute,
   AppPerfsRoute: AppPerfsRouteWithChildren,
   AppProfilRoute: AppProfilRoute,
   AppProgrammeRoute: AppProgrammeRouteWithChildren,

@@ -2,7 +2,7 @@ import { onValue, ref, set } from "firebase/database";
 import { toast } from "sonner";
 import { rtdb } from "@/lib/firebase";
 import { isThemeId } from "./theme";
-import { normalizeClosed, normalizeMuted, normalizeRequests, useOrbitStore } from "./store";
+import { normalizeClosed, normalizeDms, normalizeMuted, normalizeRequests, useOrbitStore } from "./store";
 import type { User } from "./types";
 
 const WORLD_PATH = "orbit/world";
@@ -22,6 +22,7 @@ const SHARED = [
   "weightLogs",
   "catalog",
   "messages",
+  "dms",
   "mutedUntil",
   "chatClosedUntil",
 ] as const;
@@ -44,6 +45,7 @@ function pickShared(s: Record<string, unknown>) {
     if (k === "chatClosedUntil") out[k] = normalizeClosed(s[k]);
     else if (k === "mutedUntil") out[k] = normalizeMuted(s[k]);
     else if (k === "friendRequests") out[k] = normalizeRequests(s[k]);
+    else if (k === "dms") out[k] = normalizeDms(s[k]);
     else if (k === "users") out[k] = cleanUsers(s[k]) ?? [];
     else out[k] = s[k] ?? null;
   }
@@ -85,6 +87,8 @@ export function startOrbitFirebaseSync() {
             if (remote[k] != null) patch[k] = normalizeMuted(remote[k]);
           } else if (k === "friendRequests") {
             patch[k] = Array.isArray(remote[k]) ? normalizeRequests(remote[k]) : [];
+          } else if (k === "dms") {
+            patch[k] = normalizeDms(remote[k]);
           } else if (k === "users") {
             const cleaned = cleanUsers(remote[k]);
             if (cleaned) patch[k] = cleaned;

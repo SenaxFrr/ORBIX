@@ -10,6 +10,7 @@ import { isThemeId } from "./theme";
 import type {
   ChatMessage,
   DeclaredPerf,
+  DirectMessage,
   Exercise,
   FriendRequest,
   HoldUntil,
@@ -46,11 +47,14 @@ interface OrbitData {
   weightLogs: WeightLog[];
   catalog: Exercise[];
   messages: ChatMessage[];
+  dms: DirectMessage[];
   mutedUntil: Record<string, HoldUntil>;
   chatClosedUntil: HoldUntil;
   lastSentAt: Record<string, number>;
   lastText: Record<string, string>;
   floodUntil: Record<string, number>;
+  dmLastSentAt: Record<string, number>;
+  dmLastText: Record<string, string>;
 }
 
 type ProfilePatch = Partial<
@@ -122,6 +126,10 @@ interface OrbitState extends OrbitData {
   upsertWeight: (kg: number, date: string) => { ok: true } | { ok: false; error: string };
   sendMessage: (text: string) => { ok: true } | { ok: false; error: string };
   deleteMessage: (id: string) => void;
+  sendDm: (toId: string, text: string) => { ok: true } | { ok: false; error: string };
+  markDmRead: (peerId: string) => void;
+  deleteDm: (id: string) => void;
+  deleteDmThread: (a: string, b: string) => void;
   muteUser: (userId: string, minutes: 15 | 60 | 1440 | "manual") => void;
   unmuteUser: (userId: string) => void;
   closeChat: (minutes: 15 | 60 | "manual") => void;
@@ -149,17 +157,42 @@ const empty: OrbitData = {
   weightLogs: [],
   catalog: [],
   messages: [],
+  dms: [],
   mutedUntil: {},
   chatClosedUntil: 0,
   lastSentAt: {},
   lastText: {},
   floodUntil: {},
+  dmLastSentAt: {},
+  dmLastText: {},
 };
 
 export function isHeld(until: HoldUntil | null | undefined, now = Date.now()): boolean {
   if (until == null || until === 0) return false;
   if (until === "manual") return true;
   return until > now;
+}
+
+export function conversationKey(a: string, b: string): string {
+  return a < b ? `${a}_${b}` : `${b}_${a}`;
+}
+
+export function normalizeDms(v: unknown): DirectMessage[] {
+  if (!Array.isArray(v)) return [];
+  const out: DirectMessage[] = [];
+  for (const raw of v) {
+    if (!raw || typeof raw !== "object") continue;
+    const m = raw as Record<string, unknown>;
+    const id = typeof m.id === "string" ? m.id : "";
+    const fromId = typeof m.fromId === "string" ? m.fromId : "";
+    const toId = typeof m.toId === "string" ? m.toId : "";
+    const text = typeof m.text === "string" ? m.text.slice(0, 200) : "";
+    const createdAt = typeof m.createdAt === "string" ? m.createdAt : "";
+    if (!id || !fromId || !toId || fromId === toId || !text.trim() || !createdAt) continue;
+    const readAt = typeof m.readAt === "number" && Number.isFinite(m.readAt) && m.readAt > 0 ? m.readAt : 0;
+    out.push({ id, fromId, toId, text, createdAt, readAt });
+  }
+  return out;
 }
 
 export function normalizeClosed(v: unknown): HoldUntil {
@@ -331,6 +364,12 @@ function purgeUserFrom(s: OrbitData, userId: string): Partial<OrbitData> {
   delete lastText[userId];
   const floodUntil = { ...s.floodUntil };
   delete floodUntil[userId];
+  const dmLastSentAt = { ...(s.dmLastSentAt ?? {}) };
+  delete dmLastSentAt[userId];
+  const dmLastText: Record<string, string> = {};
+  for (const [k, v] of Object.entries(s.dmLastText ?? {})) {
+    if (!k.startsWith(`${userId}:`) && !k.endsWith(`:${userId}`)) dmLastText[k] = v;
+  }
   const likes: Record<string, string[]> = {};
   for (const [k, v] of Object.entries(s.likes)) likes[k] = v.filter((id) => id !== userId);
   const mutedUntil = { ...normalizeMuted(s.mutedUntil) };
@@ -350,10 +389,13 @@ function purgeUserFrom(s: OrbitData, userId: string): Partial<OrbitData> {
     declaredPerfs: s.declaredPerfs.filter((d) => d.userId !== userId),
     weightLogs: s.weightLogs.filter((l) => l.userId !== userId),
     messages: s.messages.filter((m) => m.userId !== userId),
+    dms: normalizeDms(s.dms).filter((m) => m.fromId !== userId && m.toId !== userId),
     mutedUntil,
     lastSentAt,
     lastText,
     floodUntil,
+    dmLastSentAt,
+    dmLastText,
     sessionUserId: s.sessionUserId === userId ? null : s.sessionUserId,
   };
 }
@@ -427,11 +469,14 @@ export const useOrbitStore = create<OrbitState>()(
           weightLogs: (s.weightLogs ?? []).filter((l) => keep.has(l.userId)),
           catalog: migrateCatalog(s.catalog),
           messages: (s.messages ?? []).filter((m) => keep.has(m.userId)),
+          dms: normalizeDms(s.dms).filter((m) => keep.has(m.fromId) && keep.has(m.toId)),
           mutedUntil: normalizeMuted(s.mutedUntil),
           chatClosedUntil: normalizeClosed(s.chatClosedUntil),
           lastSentAt: s.lastSentAt ?? {},
           lastText: s.lastText ?? {},
           floodUntil: s.floodUntil ?? {},
+          dmLastSentAt: s.dmLastSentAt ?? {},
+          dmLastText: s.dmLastText ?? {},
         });
       },
       register: (opts) => {
@@ -1032,6 +1077,62 @@ export const useOrbitStore = create<OrbitState>()(
         });
         return { ok: true };
       },
+      sendDm: (toId, text) => {
+        const s = get();
+        const user = sessionUser(s);
+        if (!user) return { ok: false, error: "Pas de session." };
+        if (toId === user.id) return { ok: false, error: "Tu ne peux pas t’écrire." };
+        const peer = s.users.find((u) => u.id === toId && !u.isNpc);
+        if (!peer) return { ok: false, error: "Ce compte n’existe plus." };
+        const now = Date.now();
+        const t = text.replace(/\s+/g, " ").trim();
+        if (!t) return { ok: false, error: "Message vide." };
+        if (t.length > 200) return { ok: false, error: "200 caractères max." };
+        const last = (s.dmLastSentAt ?? {})[user.id] ?? 0;
+        if (last && now - last < 1500) return { ok: false, error: "Ralentis." };
+        const key = `${user.id}:${toId}`;
+        const prevText = (s.dmLastText ?? {})[key] ?? "";
+        if (prevText === t) return { ok: false, error: "Pas le même message." };
+        const msg: DirectMessage = {
+          id: uid(),
+          fromId: user.id,
+          toId,
+          text: t,
+          createdAt: new Date().toISOString(),
+          readAt: 0,
+        };
+        set({
+          dms: [...normalizeDms(s.dms), msg],
+          dmLastSentAt: { ...(s.dmLastSentAt ?? {}), [user.id]: now },
+          dmLastText: { ...(s.dmLastText ?? {}), [key]: t },
+        });
+        return { ok: true };
+      },
+      markDmRead: (peerId) => {
+        const me = sessionUser(get());
+        if (!me || !peerId || peerId === me.id) return;
+        const has = (get().dms ?? []).some((m) => m.fromId === peerId && m.toId === me.id && !(m.readAt > 0));
+        if (!has) return;
+        const now = Date.now();
+        set((s) => ({
+          dms: normalizeDms(s.dms).map((m) =>
+            m.fromId === peerId && m.toId === me.id && !(m.readAt > 0) ? { ...m, readAt: now } : m,
+          ),
+        }));
+      },
+      deleteDm: (id) => {
+        const user = sessionUser(get());
+        if (!user?.isAdmin) return;
+        set((s) => ({ dms: normalizeDms(s.dms).filter((m) => m.id !== id) }));
+      },
+      deleteDmThread: (a, b) => {
+        const user = sessionUser(get());
+        if (!user?.isAdmin) return;
+        const key = conversationKey(a, b);
+        set((s) => ({
+          dms: normalizeDms(s.dms).filter((m) => conversationKey(m.fromId, m.toId) !== key),
+        }));
+      },
       deleteMessage: (id) => {
         const user = sessionUser(get());
         if (!user?.isAdmin) return;
@@ -1111,11 +1212,14 @@ export const useOrbitStore = create<OrbitState>()(
         weightLogs: s.weightLogs,
         catalog: s.catalog,
         messages: s.messages,
+        dms: s.dms,
         mutedUntil: s.mutedUntil,
         chatClosedUntil: s.chatClosedUntil,
         lastSentAt: s.lastSentAt,
         lastText: s.lastText,
         floodUntil: s.floodUntil,
+        dmLastSentAt: s.dmLastSentAt,
+        dmLastText: s.dmLastText,
       }),
     },
   ),

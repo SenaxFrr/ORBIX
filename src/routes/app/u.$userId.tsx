@@ -67,6 +67,7 @@ function PublicBody({
 }) {
   const store = useOrbitStore();
   const pool = usePool();
+  const navigate = useNavigate();
   const [friendErr, setFriendErr] = useState("");
   const user = store.users.find((u) => u.id === userId && !u.isNpc);
   if (!user) {
@@ -167,7 +168,16 @@ function PublicBody({
         )}
       </section>
 
-      <div className="mt-6">
+      <div className="mt-6 grid gap-2">
+        {!mine ? (
+          <Button
+            variant="secondary"
+            className="w-full"
+            onClick={() => void navigate({ to: "/app/messages", search: { with: user.id } })}
+          >
+            Message
+          </Button>
+        ) : null}
         {mine ? (
           <div className="grid gap-2">
             <p className="text-sm text-muted">C’est toi</p>

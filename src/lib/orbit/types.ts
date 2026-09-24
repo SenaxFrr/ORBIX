@@ -219,6 +219,15 @@ export interface ChatMessage {
   createdAt: string;
 }
 
+export interface DirectMessage {
+  id: string;
+  fromId: string;
+  toId: string;
+  text: string;
+  createdAt: string;
+  readAt: number;
+}
+
 export interface FriendRequest {
   id: string;
   fromId: string;

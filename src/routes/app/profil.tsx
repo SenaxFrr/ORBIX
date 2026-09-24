@@ -2,14 +2,13 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ChevronLeft, Shield } from "lucide-react";
 import { useState } from "react";
 import { RankBadge } from "@/components/orbit/rank-badge";
-import { RankGateBanner } from "@/components/orbit/starter-lifts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { formatAge, formatBodyweight, formatFr, formatHeight } from "@/lib/orbit/format";
+import { formatAge, formatBodyweight, formatHeight } from "@/lib/orbit/format";
 import { GOAL_LABEL, LEVEL_LABEL, SEX_LABEL } from "@/lib/orbit/labels";
-import { computeGlobalOrbit, nextRankInfo } from "@/lib/orbit/ranks";
+import { computeGlobalOrbit } from "@/lib/orbit/ranks";
 import { THEME_SWATCHES } from "@/lib/orbit/theme";
 import type { Goal, Level, Sex } from "@/lib/orbit/types";
 import { useOrbitStore, usePool, useSessionUser } from "@/lib/orbit/store";
@@ -22,8 +21,6 @@ function Profil() {
   const user = useSessionUser()!;
   const pool = usePool();
   const navigate = useNavigate();
-  const orbit = computeGlobalOrbit(user, store.sets, store.workouts, store.declaredPerfs, pool);
-  const progress = nextRankInfo(orbit.score, orbit.classified);
   const friendIds = store.friendsByUser[user.id] ?? [];
   const friends = friendIds.map((id) => store.users.find((u) => u.id === id)).filter(Boolean);
   const [pseudo, setPseudo] = useState("");
@@ -62,17 +59,14 @@ function Profil() {
         </div>
         <div className="min-w-0">
           <p className="text-xs uppercase tracking-[0.16em] text-muted">@{user.pseudo}</p>
-          <div className="mt-1 flex flex-wrap items-center gap-2">
-            <RankBadge rank={orbit.rank} division={orbit.division} label={orbit.label} size="lg" />
-            <span
-              className={cn(
-                "rounded-full px-2 py-0.5 text-[11px]",
-                user.isAdmin ? "bg-accent/15 text-accent" : "bg-surface-2 text-muted",
-              )}
-            >
-              {user.isAdmin ? "Admin" : "User"}
-            </span>
-          </div>
+          <span
+            className={cn(
+              "mt-1 inline-flex rounded-full px-2 py-0.5 text-[11px]",
+              user.isAdmin ? "bg-accent/15 text-accent" : "bg-surface-2 text-muted",
+            )}
+          >
+            {user.isAdmin ? "Admin" : "User"}
+          </span>
         </div>
       </div>
 
@@ -83,18 +77,6 @@ function Profil() {
       >
         Voir mon profil public
       </Button>
-
-      {orbit.classified ? (
-        <div className="mt-4">
-          <p className="text-sm text-muted">Score {formatFr(orbit.score, 1)}</p>
-          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-2">
-            <div className="h-full rounded-full bg-accent" style={{ width: `${progress.pct}%` }} />
-          </div>
-          <p className="mt-1 text-xs text-subtle">{progress.label}</p>
-        </div>
-      ) : (
-        <RankGateBanner />
-      )}
 
       {user.isAdmin ? (
         <Button className="mt-4 w-full" onClick={() => void navigate({ to: "/app/admin" })}>

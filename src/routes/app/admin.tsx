@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ChevronDown, ChevronLeft, ChevronUp, Pencil, Plus, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ExercisePicker } from "@/components/orbit/exercise-picker";
 import { EmptyState } from "@/components/orbit/empty-state";
 import { RankBadge } from "@/components/orbit/rank-badge";
@@ -9,12 +9,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { CATALOG_GROUPS, findExercise, GROUP_LABEL, poolFrom } from "@/lib/orbit/exercises";
-import { formatDateLong, formatRest, formatSeries, formatWeight, muteStatusLabel } from "@/lib/orbit/format";
+import { formatDateLong, formatClock, formatRest, formatSeries, formatWeight, muteStatusLabel } from "@/lib/orbit/format";
 import { TAG_LABEL } from "@/lib/orbit/labels";
 import { computeGlobalOrbit } from "@/lib/orbit/ranks";
 import { ADMIN_ID } from "@/lib/orbit/seed";
 import type { Exercise, MuscleGroup, Post, PostTag, Program } from "@/lib/orbit/types";
-import { useOrbitStore, usePool, useSessionUser } from "@/lib/orbit/store";
+import { conversationKey, useOrbitStore, usePool, useSessionUser } from "@/lib/orbit/store";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/app/admin")({ component: AdminPage });
@@ -24,7 +24,7 @@ const TAGS: (PostTag | null)[] = [null, "Annonce", "Programme", "Conseils", "Eve
 function AdminPage() {
   const user = useSessionUser()!;
   const navigate = useNavigate();
-  const [tab, setTab] = useState<"feed" | "programmes" | "exercices" | "membres">("feed");
+  const [tab, setTab] = useState<"feed" | "programmes" | "exercices" | "membres" | "dm">("feed");
 
   useEffect(() => {
     if (!user.isAdmin) void navigate({ to: "/app/profil" });
@@ -69,6 +69,12 @@ function AdminPage() {
         >
           Membres
         </button>
+        <button
+          className={cn("h-10 shrink-0 rounded-lg px-3 text-xs", tab === "dm" ? "bg-accent text-accent-fg" : "text-muted")}
+          onClick={() => setTab("dm")}
+        >
+          DM
+        </button>
       </div>
       {tab === "feed" ? (
         <AdminFeed />
@@ -76,6 +82,8 @@ function AdminPage() {
         <AdminPrograms />
       ) : tab === "exercices" ? (
         <AdminExercises />
+      ) : tab === "dm" ? (
+        <AdminDms />
       ) : (
         <AdminMembers />
       )}
@@ -681,6 +689,125 @@ function AdminMembers() {
           }}
         />
       ) : null}
+    </div>
+  );
+}
+
+function AdminDms() {
+  const store = useOrbitStore();
+  const [q, setQ] = useState("");
+  const [open, setOpen] = useState<string | null>(null);
+  const [delMsg, setDelMsg] = useState<string | null>(null);
+  const [delThread, setDelThread] = useState<{ a: string; b: string } | null>(null);
+  const needle = q.trim().toLowerCase();
+  const name = (id: string) => store.users.find((u) => u.id === id)?.pseudo ?? "parti";
+
+  const threads = useMemo(() => {
+    const map = new Map<string, { a: string; b: string; msgs: typeof store.dms }>();
+    for (const m of store.dms ?? []) {
+      const key = conversationKey(m.fromId, m.toId);
+      const a = m.fromId < m.toId ? m.fromId : m.toId;
+      const b = m.fromId < m.toId ? m.toId : m.fromId;
+      const cur = map.get(key) ?? { a, b, msgs: [] };
+      cur.msgs.push(m);
+      map.set(key, cur);
+    }
+    return [...map.values()]
+      .map((t) => ({
+        ...t,
+        key: conversationKey(t.a, t.b),
+        msgs: [...t.msgs].sort((a, b) => +new Date(a.createdAt) - +new Date(b.createdAt)),
+      }))
+      .filter((t) => {
+        if (!needle) return true;
+        return name(t.a).toLowerCase().includes(needle) || name(t.b).toLowerCase().includes(needle);
+      })
+      .sort((a, b) => +new Date(b.msgs[b.msgs.length - 1].createdAt) - +new Date(a.msgs[a.msgs.length - 1].createdAt));
+  }, [store.dms, store.users, needle]);
+
+  const current = threads.find((t) => t.key === open) ?? null;
+
+  if (current) {
+    return (
+      <div>
+        <button className="mb-3 text-sm text-muted" onClick={() => setOpen(null)}>
+          Retour
+        </button>
+        <div className="flex items-center justify-between gap-2">
+          <p className="min-w-0 truncate text-sm font-medium">
+            @{name(current.a)} · @{name(current.b)}
+          </p>
+          <Button size="sm" variant="danger" onClick={() => setDelThread({ a: current.a, b: current.b })}>
+            Supprimer
+          </Button>
+        </div>
+        <ul className="mt-3 space-y-2">
+          {current.msgs.map((m) => (
+            <li key={m.id} className="glass rounded-2xl px-3 py-3">
+              <div className="flex items-baseline justify-between gap-2">
+                <p className="truncate text-xs font-medium">
+                  @{name(m.fromId)} → @{name(m.toId)}
+                </p>
+                <span className="shrink-0 text-[10px] text-subtle num">{formatClock(m.createdAt)}</span>
+              </div>
+              <p className="mt-1 whitespace-pre-wrap break-words text-sm">{m.text}</p>
+              <button className="mt-1 h-8 text-[11px] text-danger" onClick={() => setDelMsg(m.id)}>
+                Supprimer
+              </button>
+            </li>
+          ))}
+        </ul>
+        {delMsg ? (
+          <Confirm
+            title="Supprimer ce message ?"
+            onCancel={() => setDelMsg(null)}
+            onOk={() => {
+              store.deleteDm(delMsg);
+              setDelMsg(null);
+              if (current.msgs.length <= 1) setOpen(null);
+            }}
+          />
+        ) : null}
+        {delThread ? (
+          <Confirm
+            title="Supprimer cette conversation ?"
+            onCancel={() => setDelThread(null)}
+            onOk={() => {
+              store.deleteDmThread(delThread.a, delThread.b);
+              setDelThread(null);
+              setOpen(null);
+            }}
+          />
+        ) : null}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <Input placeholder="Rechercher un pseudo" value={q} onChange={(e) => setQ(e.target.value)} />
+      {threads.length === 0 ? (
+        <p className="mt-4 text-sm text-muted">Aucun DM.</p>
+      ) : (
+        <ul className="mt-3 space-y-2">
+          {threads.map((t) => {
+            const last = t.msgs[t.msgs.length - 1];
+            return (
+              <li key={t.key}>
+                <button className="glass w-full rounded-2xl px-3 py-3 text-left" onClick={() => setOpen(t.key)}>
+                  <span className="flex items-baseline justify-between gap-2">
+                    <span className="truncate text-sm font-medium">
+                      @{name(t.a)} · @{name(t.b)}
+                    </span>
+                    <span className="shrink-0 text-[10px] text-subtle num">{formatClock(last.createdAt)}</span>
+                  </span>
+                  <span className="mt-1 block truncate text-xs text-muted">{last.text}</span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }

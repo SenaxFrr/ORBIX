@@ -1,9 +1,32 @@
 import { useNavigate } from "@tanstack/react-router";
+import { MessageSquare } from "lucide-react";
 import { RankBadge } from "@/components/orbit/rank-badge";
 import { formatFr } from "@/lib/orbit/format";
 import { computeGlobalOrbit, nextRankInfo } from "@/lib/orbit/ranks";
 import { useOrbitStore, usePool, useSessionUser } from "@/lib/orbit/store";
 import { cn } from "@/lib/utils";
+
+function DmButton() {
+  const me = useSessionUser();
+  const dms = useOrbitStore((s) => s.dms);
+  const navigate = useNavigate();
+  if (!me) return null;
+  const n = (dms ?? []).filter((m) => m.toId === me.id && !(m.readAt > 0)).length;
+  return (
+    <button
+      className="relative flex size-11 items-center justify-center rounded-full"
+      onClick={() => void navigate({ to: "/app/messages", search: {} })}
+      aria-label={n > 0 ? `Messages, ${n} non lus` : "Messages"}
+    >
+      <MessageSquare className="size-5" />
+      {n > 0 ? (
+        <span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-semibold text-accent-fg">
+          {n > 9 ? "9+" : n}
+        </span>
+      ) : null}
+    </button>
+  );
+}
 
 export function AppHeader() {
   const user = useSessionUser();
@@ -16,7 +39,9 @@ export function AppHeader() {
   return (
     <header className="flex items-center justify-between px-4 pt-[calc(env(safe-area-inset-top)+10px)] pb-2">
       <p className="font-display text-lg font-semibold tracking-[0.2em]">ORBIT</p>
-      <button
+      <div className="flex items-center">
+        <DmButton />
+        <button
         className="flex size-11 items-center justify-center rounded-full bg-surface-2 text-xs font-semibold shadow-[var(--shadow-border)]"
         onClick={() => void navigate({ to: "/app/profil" })}
         aria-label="Profil"
@@ -30,6 +55,7 @@ export function AppHeader() {
           {initials}
         </span>
       </button>
+      </div>
     </header>
   );
 }
@@ -64,6 +90,7 @@ export function RankStrip() {
             {orbit.classified ? formatFr(orbit.score, 1) : "—"}
           </span>
         </button>
+        <DmButton />
         <button
           className="flex size-10 shrink-0 items-center justify-center rounded-full bg-surface-2 text-[11px] font-semibold"
           onClick={() => void navigate({ to: "/app/profil" })}
