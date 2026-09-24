@@ -44,10 +44,14 @@ export function startOrbitFirebaseSync() {
   let ready = false;
   let timer: ReturnType<typeof setTimeout> | null = null;
 
-  void writeWorld()
+  void set(ref(rtdb, "orbit/ping"), { ok: true, at: Date.now() })
+    .then(() => {
+      toast.success("Cloud connecté");
+      return writeWorld();
+    })
     .then(() => toast.success("Données envoyées au cloud"))
     .catch((err: { code?: string; message?: string }) => {
-      console.error("[orbit] firebase first write", err);
+      console.error("[orbit] firebase write", err);
       toast.error(err?.code || err?.message || "Écriture Firebase refusée");
     });
 
@@ -69,7 +73,7 @@ export function startOrbitFirebaseSync() {
     },
     (err) => {
       console.error("[orbit] firebase listen", err);
-      toast.error("Lecture Firebase refusée — publie les règles");
+      toast.error("Lecture Firebase refusée");
       ready = true;
     },
   );
@@ -78,9 +82,7 @@ export function startOrbitFirebaseSync() {
     if (!ready || applyingRemote) return;
     if (timer) clearTimeout(timer);
     timer = setTimeout(() => {
-      void writeWorld().catch((err) => {
-        console.error("[orbit] firebase write", err);
-      });
+      void writeWorld().catch((err) => console.error("[orbit] firebase write", err));
     }, 350);
   });
 
