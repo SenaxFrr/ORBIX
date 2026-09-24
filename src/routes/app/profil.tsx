@@ -6,11 +6,12 @@ import { RankGateBanner } from "@/components/orbit/starter-lifts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { formatAge, formatBodyweight, formatFr, formatHeight } from "@/lib/orbit/format";
 import { GOAL_LABEL, LEVEL_LABEL, SEX_LABEL } from "@/lib/orbit/labels";
 import { computeGlobalOrbit, nextRankInfo } from "@/lib/orbit/ranks";
 import { THEME_SWATCHES } from "@/lib/orbit/theme";
-import type { GlowLevel, Goal, Level, Sex } from "@/lib/orbit/types";
+import type { Goal, Level, Sex } from "@/lib/orbit/types";
 import { useOrbitStore, usePool, useSessionUser } from "@/lib/orbit/store";
 import { cn } from "@/lib/utils";
 
@@ -35,11 +36,11 @@ function Profil() {
   const [delPw, setDelPw] = useState("");
   const [delErr, setDelErr] = useState("");
   const [dropId, setDropId] = useState<string | null>(null);
+  const [bio, setBio] = useState(user.bio ?? "");
   const initials = (user.firstName || user.pseudo).slice(0, 2).toUpperCase();
   const incoming = store.friendRequests.filter((r) => r.toId === user.id && r.status === "pending");
   const outgoing = store.friendRequests.filter((r) => r.fromId === user.id && r.status === "pending");
   const theme = user.theme ?? "or";
-  const glow = user.glow ?? "normal";
   const principal = user.pseudo.toLowerCase() === "admin";
 
   return (
@@ -74,6 +75,14 @@ function Profil() {
           </div>
         </div>
       </div>
+
+      <Button
+        variant="secondary"
+        className="mt-4 w-full"
+        onClick={() => void navigate({ to: "/app/u/$userId", params: { userId: user.id } })}
+      >
+        Voir mon profil public
+      </Button>
 
       {orbit.classified ? (
         <div className="mt-4">
@@ -113,20 +122,6 @@ function Profil() {
             </button>
           ))}
         </div>
-        <div className="mt-3 flex gap-1">
-          {(["faible", "normal", "fort"] as GlowLevel[]).map((g) => (
-            <button
-              key={g}
-              onClick={() => store.updateProfile({ glow: g })}
-              className={cn(
-                "h-10 flex-1 rounded-lg text-sm capitalize",
-                glow === g ? "bg-accent text-accent-fg" : "bg-surface-2",
-              )}
-            >
-              {g}
-            </button>
-          ))}
-        </div>
         <div className="mt-3 rounded-2xl bg-surface p-3">
           <div className="flex items-center gap-2">
             <span className="rounded-full bg-accent px-2 py-0.5 text-xs text-accent-fg">Badge</span>
@@ -149,6 +144,21 @@ function Profil() {
               defaultValue={user.firstName ?? ""}
               onBlur={(e) => store.updateProfile({ firstName: e.target.value.trim() })}
             />
+          </div>
+          <div>
+            <Label>Bio</Label>
+            <Textarea
+              className="mt-1"
+              maxLength={160}
+              value={bio}
+              onChange={(e) => setBio(e.target.value.slice(0, 160))}
+              onBlur={() => {
+                const next = bio.trim().slice(0, 160);
+                setBio(next);
+                if (next !== (user.bio ?? "")) store.updateProfile({ bio: next });
+              }}
+            />
+            <p className="mt-1 text-right text-[10px] text-subtle num">{bio.length}/160</p>
           </div>
           <div>
             <Label>Sexe</Label>

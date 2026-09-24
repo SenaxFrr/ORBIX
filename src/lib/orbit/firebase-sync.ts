@@ -1,7 +1,7 @@
 import { onValue, ref, set } from "firebase/database";
 import { toast } from "sonner";
 import { rtdb } from "@/lib/firebase";
-import { isGlow, isThemeId } from "./theme";
+import { isThemeId } from "./theme";
 import { normalizeClosed, normalizeMuted, normalizeRequests, useOrbitStore } from "./store";
 import type { User } from "./types";
 
@@ -29,9 +29,11 @@ const SHARED = [
 function cleanUsers(v: unknown): User[] | null {
   if (!Array.isArray(v)) return null;
   return v.map((raw) => {
-    const u = { ...(raw as User) };
+    const u = { ...(raw as User) } as User & { glow?: unknown };
     if (!isThemeId(u.theme)) delete u.theme;
-    if (!isGlow(u.glow)) delete u.glow;
+    delete u.glow;
+    if (typeof u.bio !== "string") delete u.bio;
+    else u.bio = u.bio.slice(0, 160);
     return u;
   });
 }

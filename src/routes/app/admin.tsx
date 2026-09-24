@@ -9,12 +9,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { CATALOG_GROUPS, findExercise, GROUP_LABEL, poolFrom } from "@/lib/orbit/exercises";
-import { formatDateLong, formatHold, formatRest, formatSeries, formatWeight, muteStatusLabel } from "@/lib/orbit/format";
+import { formatDateLong, formatRest, formatSeries, formatWeight, muteStatusLabel } from "@/lib/orbit/format";
 import { TAG_LABEL } from "@/lib/orbit/labels";
 import { computeGlobalOrbit } from "@/lib/orbit/ranks";
 import { ADMIN_ID } from "@/lib/orbit/seed";
-import type { Exercise, HoldUntil, MuscleGroup, Post, PostTag, Program } from "@/lib/orbit/types";
-import { isHeld, useOrbitStore, usePool, useSessionUser } from "@/lib/orbit/store";
+import type { Exercise, MuscleGroup, Post, PostTag, Program } from "@/lib/orbit/types";
+import { useOrbitStore, usePool, useSessionUser } from "@/lib/orbit/store";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/app/admin")({ component: AdminPage });
@@ -24,7 +24,7 @@ const TAGS: (PostTag | null)[] = [null, "Annonce", "Programme", "Conseils", "Eve
 function AdminPage() {
   const user = useSessionUser()!;
   const navigate = useNavigate();
-  const [tab, setTab] = useState<"feed" | "programmes" | "exercices" | "comptes" | "membres">("feed");
+  const [tab, setTab] = useState<"feed" | "programmes" | "exercices" | "membres">("feed");
 
   useEffect(() => {
     if (!user.isAdmin) void navigate({ to: "/app/profil" });
@@ -64,12 +64,6 @@ function AdminPage() {
           Exercices
         </button>
         <button
-          className={cn("h-10 shrink-0 rounded-lg px-3 text-xs", tab === "comptes" ? "bg-accent text-accent-fg" : "text-muted")}
-          onClick={() => setTab("comptes")}
-        >
-          Comptes
-        </button>
-        <button
           className={cn("h-10 shrink-0 rounded-lg px-3 text-xs", tab === "membres" ? "bg-accent text-accent-fg" : "text-muted")}
           onClick={() => setTab("membres")}
         >
@@ -82,10 +76,8 @@ function AdminPage() {
         <AdminPrograms />
       ) : tab === "exercices" ? (
         <AdminExercises />
-      ) : tab === "membres" ? (
-        <AdminMembers />
       ) : (
-        <AdminUsers />
+        <AdminMembers />
       )}
     </main>
   );
@@ -717,106 +709,6 @@ function Confirm({
           </Button>
         </div>
       </div>
-    </div>
-  );
-}
-
-function AdminUsers() {
-  const store = useOrbitStore();
-  const [now, setNow] = useState(Date.now());
-  const [del, setDel] = useState<{ id: string; pseudo: string } | null>(null);
-  useEffect(() => {
-    const t = window.setInterval(() => setNow(Date.now()), 5000);
-    return () => window.clearInterval(t);
-  }, []);
-  const members = store.users.filter((u) => !u.isNpc && !u.isAdmin);
-  const closed = isHeld(store.chatClosedUntil, now);
-
-  return (
-    <div>
-      <h2 className="text-sm font-medium">Chat</h2>
-      <p className="mt-1 text-xs text-muted">
-        {closed
-          ? `Fermé · ${formatHold(store.chatClosedUntil as HoldUntil, now)}`
-          : "Ouvert."}
-      </p>
-      <div className="mt-2 flex flex-wrap gap-1">
-        {closed ? (
-          <Button size="sm" variant="secondary" onClick={() => store.openChat()}>
-            Réouvrir
-          </Button>
-        ) : (
-          <>
-            <Button size="sm" variant="secondary" onClick={() => store.closeChat(15)}>
-              Fermer 15 min
-            </Button>
-            <Button size="sm" variant="secondary" onClick={() => store.closeChat(60)}>
-              Fermer 1 h
-            </Button>
-            <Button size="sm" variant="secondary" onClick={() => store.closeChat("manual")}>
-              Jusqu’à réouverture
-            </Button>
-          </>
-        )}
-      </div>
-
-      <h2 className="mt-6 text-sm font-medium">Comptes</h2>
-      {members.length === 0 ? (
-        <p className="mt-3 text-sm text-muted">Aucun membre inscrit.</p>
-      ) : (
-        <ul className="mt-3 space-y-2">
-          {members.map((u) => {
-            const muted = isHeld(store.mutedUntil[u.id], now);
-            return (
-              <li key={u.id} className="glass rounded-2xl px-3 py-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="font-medium">@{u.pseudo}</p>
-                    <p className="text-xs text-muted">
-                      {muted ? `Muet · ${formatHold(store.mutedUntil[u.id], now)}` : "Actif"}
-                    </p>
-                  </div>
-                  <button
-                    className="flex size-10 items-center justify-center text-danger"
-                    onClick={() => setDel({ id: u.id, pseudo: u.pseudo })}
-                    aria-label={`Supprimer ${u.pseudo}`}
-                  >
-                    <Trash2 className="size-4" />
-                  </button>
-                </div>
-                <div className="mt-2 flex flex-wrap gap-1">
-                  <Button size="sm" variant="secondary" onClick={() => store.muteUser(u.id, 15)}>
-                    15 min
-                  </Button>
-                  <Button size="sm" variant="secondary" onClick={() => store.muteUser(u.id, 60)}>
-                    1 h
-                  </Button>
-                  <Button size="sm" variant="secondary" onClick={() => store.muteUser(u.id, 1440)}>
-                    24 h
-                  </Button>
-                  <Button size="sm" variant="secondary" onClick={() => store.muteUser(u.id, "manual")}>
-                    Jusqu’à unmute
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => store.unmuteUser(u.id)}>
-                    Unmute
-                  </Button>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-      {del ? (
-        <Confirm
-          title={`Supprimer @${del.pseudo} ?`}
-          ok="Supprimer"
-          onCancel={() => setDel(null)}
-          onOk={() => {
-            store.deleteAccount(del.id);
-            setDel(null);
-          }}
-        />
-      ) : null}
     </div>
   );
 }

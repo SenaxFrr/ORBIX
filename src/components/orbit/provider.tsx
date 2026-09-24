@@ -8,13 +8,12 @@ import { useOrbitStore, useSessionUser } from "@/lib/orbit/store";
 export function OrbitProvider({ children }: { children: React.ReactNode }) {
   const hydrated = useOrbitStore((s) => s.hydrated);
   const theme = useSessionUser()?.theme;
-  const glow = useSessionUser()?.glow;
   const userId = useSessionUser()?.id;
 
   useEffect(() => {
     if (!hydrated) return;
-    applyAccountTheme(theme, glow);
-  }, [hydrated, theme, glow, userId]);
+    applyAccountTheme(theme);
+  }, [hydrated, theme, userId]);
 
   useEffect(() => {
     const persist = useOrbitStore.persist;

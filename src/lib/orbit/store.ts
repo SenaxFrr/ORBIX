@@ -6,7 +6,7 @@ import { todayKey } from "./format";
 import { BUILTIN_PROGRAMS } from "./programs";
 import { computeGlobalOrbit, diffRankEvents, lastSetForExercise, liftRankFor } from "./ranks";
 import { ADMIN_ID, buildBaseWorld, makeAdmin } from "./seed";
-import { isGlow, isThemeId } from "./theme";
+import { isThemeId } from "./theme";
 import type {
   ChatMessage,
   DeclaredPerf,
@@ -54,7 +54,7 @@ interface OrbitData {
 }
 
 type ProfilePatch = Partial<
-  Pick<User, "bodyweight" | "height" | "sex" | "age" | "firstName" | "level" | "goal" | "theme" | "glow">
+  Pick<User, "bodyweight" | "height" | "sex" | "age" | "firstName" | "level" | "goal" | "theme" | "bio">
 >;
 
 interface OrbitState extends OrbitData {
@@ -383,8 +383,9 @@ export const useOrbitStore = create<OrbitState>()(
         const kept = (s.users ?? [])
           .filter((u) => !u.isNpc && u.pseudo.toLowerCase() !== "demo" && u.id !== "user_demo")
           .map((u) => {
-            if (!u.npcLifts && !u.firstName) return u;
-            const next = { ...u };
+            const next = { ...u } as User & { glow?: unknown };
+            delete next.glow;
+            if (!u.npcLifts && !u.firstName) return next;
             delete next.npcLifts;
             if (next.isAdmin) delete next.firstName;
             return next;
@@ -458,7 +459,6 @@ export const useOrbitStore = create<OrbitState>()(
           level: "debutant",
           goal: "force",
           theme: "or",
-          glow: "normal",
           createdAt: new Date().toISOString(),
         };
         const today = todayKey();
@@ -496,9 +496,9 @@ export const useOrbitStore = create<OrbitState>()(
         const today = todayKey();
         const clean: ProfilePatch = { ...patch };
         if (clean.theme != null && !isThemeId(clean.theme)) delete clean.theme;
-        if (clean.glow != null && !isGlow(clean.glow)) delete clean.glow;
+        if (typeof clean.bio === "string") clean.bio = clean.bio.trim().slice(0, 160);
         const keys = Object.keys(clean) as (keyof ProfilePatch)[];
-        const appearanceOnly = keys.length > 0 && keys.every((k) => k === "theme" || k === "glow");
+        const appearanceOnly = keys.length > 0 && keys.every((k) => k === "theme");
         set((s) => {
           let extra: Partial<OrbitData> = {};
           if (typeof clean.bodyweight === "number") {

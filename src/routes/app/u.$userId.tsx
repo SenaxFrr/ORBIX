@@ -3,7 +3,7 @@ import { ChevronLeft } from "lucide-react";
 import { useState } from "react";
 import { RankBadge } from "@/components/orbit/rank-badge";
 import { Button } from "@/components/ui/button";
-import { formatAge, formatDateFull, formatFr, formatRm, formatSet, formatVolume } from "@/lib/orbit/format";
+import { formatAge, formatDateFull, formatFr, formatSet, formatVolume } from "@/lib/orbit/format";
 import { GOAL_LABEL, LEVEL_LABEL, SEX_LABEL } from "@/lib/orbit/labels";
 import { computeGlobalOrbit, liftRankFor, nextRankInfo } from "@/lib/orbit/ranks";
 import { useOrbitStore, usePool, useSessionUser } from "@/lib/orbit/store";
@@ -76,7 +76,7 @@ function PublicBody({
   const orbit = computeGlobalOrbit(user, store.sets, store.workouts, store.declaredPerfs, pool);
   const progress = nextRankInfo(orbit.score, orbit.classified);
   const lifts = pool
-    .filter((e) => e.classified)
+    .filter((e) => e.classified === true && !e.custom)
     .map((e) => liftRankFor(user, e.id, store.sets, store.workouts, store.declaredPerfs, pool))
     .filter((l) => l.classifiedLift && l.bestWeight > 0)
     .sort((a, b) => b.score - a.score);
@@ -110,6 +110,9 @@ function PublicBody({
           </div>
         </div>
       </div>
+      {user.bio?.trim() ? (
+        <p className="mt-3 whitespace-pre-wrap break-words text-sm">{user.bio.trim()}</p>
+      ) : null}
 
       {orbit.classified ? (
         <div className="mt-4">
@@ -146,9 +149,9 @@ function PublicBody({
       ) : null}
 
       <section className="mt-6">
-        <h2 className="text-sm font-medium">Rangs exos</h2>
+        <h2 className="text-sm font-medium">Rangs d’exos</h2>
         {lifts.length === 0 ? (
-          <p className="mt-2 text-sm text-muted">Aucun exo classé pour l’instant.</p>
+          <p className="mt-2 text-sm text-muted">Pas encore de rangs d’exos types.</p>
         ) : (
           <ul className="mt-2 space-y-2">
             {lifts.map((l) => (
@@ -157,9 +160,7 @@ function PublicBody({
                   <p className="min-w-0 truncate text-sm font-medium">{l.name}</p>
                   <RankBadge rank={l.rank} division={l.division} label={l.label} size="sm" />
                 </div>
-                <p className="mt-1 text-xs text-muted">
-                  1RM {formatRm(l.epley)} · {formatSet(l.bestWeight, l.bestReps)}
-                </p>
+                <p className="mt-1 text-xs text-muted">{formatSet(l.bestWeight, l.bestReps)}</p>
               </li>
             ))}
           </ul>

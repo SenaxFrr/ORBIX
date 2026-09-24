@@ -2,7 +2,6 @@ export type Sex = "homme" | "femme" | "autre";
 export type Level = "debutant" | "intermediaire" | "avance";
 export type Goal = "force" | "hypertrophie" | "perte" | "athletique";
 export type ThemeId = "or" | "teal" | "violet" | "rouge" | "bleu" | "vert";
-export type GlowLevel = "faible" | "normal" | "fort";
 export type MuscleGroup =
   | "pectoraux"
   | "dos"
@@ -48,7 +47,7 @@ export interface User {
   level?: Level;
   goal?: Goal;
   theme?: ThemeId;
-  glow?: GlowLevel;
+  bio?: string;
   createdAt: string;
   isAdmin?: boolean;
   isNpc?: boolean;

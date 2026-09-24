@@ -15,7 +15,7 @@
   --color-accent: #e8c547;
   --color-accent-fg: #16120a;
   --color-border: rgb(232 237 245 / 0.1);
-  --color-glow: rgb(232 197 71 / 0.18);
+  --color-glow: color-mix(in oklab, var(--color-accent) 18%, transparent);
   --color-danger: #f07178;
   --color-warn: #e8a54b;
 
